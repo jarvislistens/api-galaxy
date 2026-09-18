@@ -227,12 +227,30 @@ a { color: var(--accent); }
 
 /* ---------------------------------------------------------------- inspector */
 
+.ag-side { display: grid; gap: 14px; align-content: start; min-width: 0; }
+
+.ag-matches {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  padding: 12px 14px;
+}
+.ag-matches h3 { margin: 0 0 6px; font-size: 13px; }
+ul.ag-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 22vh;
+  overflow-y: auto;
+}
+ul.ag-results li { margin: 2px 0; overflow-wrap: anywhere; }
+
 .ag-inspector {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--bg-raised);
   padding: 14px;
-  max-height: 62vh;
+  max-height: 46vh;
   overflow-y: auto;
 }
 .ag-inspector h3 { margin: 0 0 2px; font-size: 15px; overflow-wrap: anywhere; }

@@ -304,13 +304,20 @@ def validate_journey(journey: Journey, graph: KnowledgeGraph) -> JourneyValidati
     degraded: list[str] = []
     step_results: list[JourneyStepValidation] = []
 
-    # Alias mappings introduced by an accepted repair let a renamed field still resolve.
+    # Only a mapping created to *address a change* lets a renamed field still resolve.
+    #
+    # This is narrower than "has any accepted alias", deliberately. Agreeing that
+    # `customer_id` and `cust_no` are the same concept says nothing about whether anyone
+    # published a translation for the brand-new name a rename introduced — and if the two
+    # were conflated, accepting an unrelated alias would silently mark a broken checkout
+    # as healthy. A mapping counts only when a repair or a scenario put it there.
     alias_targets: set[str] = set()
     for edge in graph.edges:
-        if edge.type is EdgeType.ALIAS_OF and edge.acceptance in (
-            Acceptance.ACCEPTED,
-            Acceptance.OBSERVED,
-        ):
+        if edge.type is not EdgeType.ALIAS_OF:
+            continue
+        if not (edge.attrs.get("repair") or edge.attrs.get("introduced_by_scenario")):
+            continue
+        if edge.acceptance in (Acceptance.ACCEPTED, Acceptance.OBSERVED):
             alias_targets.add(edge.source)
             alias_targets.add(edge.target)
 

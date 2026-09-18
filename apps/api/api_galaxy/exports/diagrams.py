@@ -911,8 +911,16 @@ def _mid(raw: str) -> str:
 
 
 def _mlabel(raw: str) -> str:
-    """Mermaid labels are quoted, so quotes, newlines and brackets must not survive."""
+    """Escape a label for a Mermaid node.
+
+    Two separate hazards. Quotes, brackets and pipes end the label early and break the
+    diagram. Angle brackets are worse: Mermaid renders labels as HTML by default, so a
+    schema called ``<script>`` would execute in whatever page displays the diagram.
+    Mermaid's ``#nn;`` numeric entities cover both.
+    """
     text = " ".join(str(raw).split())
+    text = text.replace("&", "#38;")
+    text = text.replace("<", "#60;").replace(">", "#62;")
     text = text.replace('"', "#quot;").replace("'", "#39;")
     text = text.replace("[", "#91;").replace("]", "#93;")
     text = text.replace("{", "#123;").replace("}", "#125;")

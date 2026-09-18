@@ -422,10 +422,13 @@ def sanitise_cell(value: Any) -> str:
         return ""
     if isinstance(value, bool):
         return "true" if value else "false"
-    text = str(value).replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
-    if text.startswith(_INJECTION_PREFIXES):
-        return "'" + text
-    return text
+    raw = str(value)
+    # The dangerous-prefix check runs on the original string, before newlines and tabs
+    # are flattened to spaces — otherwise a value starting with a tab would look
+    # harmless by the time it is inspected.
+    dangerous = raw.startswith(_INJECTION_PREFIXES)
+    text = raw.replace("\r\n", " ").replace("\n", " ").replace("\r", " ").replace("\t", " ")
+    return "'" + text if dangerous else text
 
 
 def to_csv_bundle(bundle: ReportBundle) -> dict[str, str]:

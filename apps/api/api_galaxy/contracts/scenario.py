@@ -87,7 +87,8 @@ class ImpactItem(BaseModel):
     distance: int = Field(description="Hops from the changed node. 0 = the change itself.")
     reason: str
     chain: list[str] = Field(
-        default_factory=list, description="Dependency chain of node IDs back to the change."
+        default_factory=list,
+        description="Node IDs from the changed node to this one. Always `distance + 1` long.",
     )
     chain_labels: list[str] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)

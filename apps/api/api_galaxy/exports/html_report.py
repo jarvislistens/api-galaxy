@@ -347,11 +347,19 @@ def _panel_explore(bundle: ReportBundle, svg: str) -> str:
         "</div>"
     )
 
-    inspector = (
+    # The matches list is the keyboard path to the same thing the map offers with a
+    # pointer: it turns the filter into a focusable list of real buttons.
+    side = (
+        '<div class="ag-side">'
+        '<section class="ag-matches" aria-label="Matching nodes">'
+        "<h3>Matches</h3>"
+        '<ul id="ag-results" class="ag-results"></ul>'
+        "</section>"
         '<aside class="ag-inspector" id="ag-inspector" aria-live="polite" '
         'aria-label="Node inspector">'
         '<p class="ag-empty">Select a node in the map to inspect it.</p>'
         "</aside>"
+        "</div>"
     )
 
     return _panel(
@@ -360,7 +368,7 @@ def _panel_explore(bundle: ReportBundle, svg: str) -> str:
         + toolbar
         + '<div class="ag-workspace">'
         + canvas
-        + inspector
+        + side
         + "</div>"
         + _player(bundle)
         + _legend_block(bundle)

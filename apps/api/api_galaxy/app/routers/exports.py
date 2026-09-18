@@ -42,6 +42,41 @@ def _exports_module():
     return exports
 
 
+def _decision_records(rows: list[dict[str, Any]]) -> list[Any]:
+    """Turn stored decision rows into the contract model the report bundle expects.
+
+    The database keeps `provider` as a plain string and writes "" when a decision had no
+    provider (a human edit, say), which is not a valid `ProviderKind` — so it maps to None.
+    """
+    from api_galaxy.contracts.providers import DecisionRecord, ProviderKind
+
+    records: list[Any] = []
+    for row in rows:
+        raw_provider = str(row.get("provider") or "")
+        try:
+            provider = ProviderKind(raw_provider) if raw_provider else None
+        except ValueError:
+            provider = None
+        records.append(
+            DecisionRecord(
+                id=str(row.get("id", "")),
+                project_id=str(row.get("project_id", "")),
+                timestamp=str(row.get("timestamp") or ""),
+                provider=provider,
+                model=str(row.get("model") or ""),
+                prompt_template_version=str(row.get("prompt_template_version") or ""),
+                task=str(row.get("task") or ""),
+                action=str(row.get("action") or ""),
+                subject=str(row.get("subject") or ""),
+                accepted_payload=row.get("accepted_payload") or {},
+                editor=str(row.get("editor") or "local-user"),
+                source_references=list(row.get("source_references") or []),
+                payload_fingerprint=str(row.get("payload_fingerprint") or ""),
+            )
+        )
+    return records
+
+
 @router.get("/exports/formats")
 async def formats() -> dict[str, Any]:
     exports = _exports_module()
@@ -60,17 +95,17 @@ async def create_export(project_id: str, payload: ExportRequest) -> dict[str, An
     if live is None:
         raise NotFoundError(f"No project with id '{project_id}'.")
 
-    available = {f["id"]: f for f in exports.EXPORT_FORMATS}
-    spec = available.get(payload.format)
+    catalogue = {f.id: f for f in exports.EXPORT_FORMATS}
+    spec = catalogue.get(payload.format)
     if spec is None:
         raise ValidationFailure(
             f"'{payload.format}' is not a known export format. "
-            f"Available: {', '.join(sorted(available))}."
+            f"Available: {', '.join(sorted(catalogue))}."
         )
-    if not spec.get("available", True):
+    if not spec.available:
         raise ValidationFailure(
-            f"{spec['label']} is not available in this installation: "
-            f"{spec.get('unavailable_reason', 'a dependency is missing')}."
+            f"{spec.label} is not available in this installation: "
+            f"{spec.unavailable_reason or 'a dependency is missing'}."
         )
 
     scenario = live.scenarios.get(payload.scenario_id) if payload.scenario_id else None
@@ -78,6 +113,7 @@ async def create_export(project_id: str, payload: ExportRequest) -> dict[str, An
         raise NotFoundError(f"No scenario with id '{payload.scenario_id}'.")
 
     impact = None
+    scenario_graph = None
     if scenario is not None:
         from api_galaxy.analysis.impact import apply_changes, compute_impact
 
@@ -88,7 +124,10 @@ async def create_export(project_id: str, payload: ExportRequest) -> dict[str, An
         live.analysed,
         scenario=scenario,
         impact=impact,
-        decisions=state.storage.list_decisions(project_id),
+        # A scenario export must show the scenario's graph, while the risks, journeys and
+        # disclosure still come from the base analysis.
+        graph=scenario_graph,
+        decisions=_decision_records(state.storage.list_decisions(project_id)),
         provider_disclosure=live.analysed.enrichment_label,
     )
     if payload.journey_id or payload.domain_id or payload.node_ids:
@@ -99,10 +138,17 @@ async def create_export(project_id: str, payload: ExportRequest) -> dict[str, An
             domain_id=payload.domain_id,
         )
 
+    # Only pass options the chosen renderer actually understands. The renderers forward
+    # their kwargs to the underlying `to_*` function, so an irrelevant one (a `scale` on a
+    # Markdown export) is a TypeError rather than something harmlessly ignored.
+    options: dict[str, Any] = {}
+    if payload.format == "png":
+        options["scale"] = payload.scale
+    if payload.title and payload.format in ("svg", "png", "mermaid"):
+        options["title"] = payload.title
+
     try:
-        data, filename, media_type = exports.render(
-            bundle, payload.format, scale=payload.scale, title=payload.title
-        )
+        data, filename, media_type = exports.render(bundle, payload.format, **options)
     except exports.ExportUnavailable as exc:
         raise ValidationFailure(str(exc)) from exc
 
@@ -125,7 +171,7 @@ async def create_export(project_id: str, payload: ExportRequest) -> dict[str, An
     return {
         "export": record,
         "download_url": f"/api/v1/exports/{record['id']}/download",
-        "interactive": bool(spec.get("interactive")),
+        "interactive": spec.interactive,
     }
 
 

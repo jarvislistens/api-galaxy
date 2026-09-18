@@ -18,7 +18,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# PDF export. Needs the pango and cairo system libraries as well as the wheel
+# (macOS: `brew install pango cairo`, Debian: `apt install libpango-1.0-0 libcairo2`).
+# Without it the export registry marks the PDF format unavailable and the product offers
+# the print-ready HTML instead — it never silently substitutes a different artifact.
 pdf = ["weasyprint>=62"]
+# PNG export. Rasterises the diagram SVG; needs the cairo system library
+# (macOS: `brew install cairo`, Debian: `apt install libcairo2`).
+png = ["cairosvg>=2.7"]
 keyring = ["keyring>=25"]
 dev = [
     "pytest>=8.3",
@@ -26,6 +33,7 @@ dev = [
     "ruff>=0.7",
     "mypy>=1.13",
     "types-PyYAML",
+    "pypdf>=5",
 ]
 
 [build-system]

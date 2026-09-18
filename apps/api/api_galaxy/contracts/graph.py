@@ -161,12 +161,23 @@ class GraphEdge(BaseModel):
 
     @property
     def stroke(self) -> str:
-        """Visual encoding contract, computed once here so UI and export agree."""
+        """Visual encoding contract, computed once here so UI and export agree.
+
+        Acceptance is checked before source kind. A deterministic rule that only ever
+        *suggests* — alias detection — would otherwise draw solid and read as a stated
+        fact, which is exactly the confusion the whole provenance model exists to prevent.
+        """
         if self.provenance.source_kind is SourceKind.USER_EDIT:
             return "dotted"
-        if self.provenance.source_kind in (SourceKind.AI_INFERENCE, SourceKind.BUNDLED_ANALYSIS):
+        if self.acceptance is Acceptance.ACCEPTED:
+            return "dotted"
+        if self.acceptance is Acceptance.PROPOSED:
             return "dashed"
-        if self.provenance.source_kind is SourceKind.SCENARIO:
+        if self.provenance.source_kind in (
+            SourceKind.AI_INFERENCE,
+            SourceKind.BUNDLED_ANALYSIS,
+            SourceKind.SCENARIO,
+        ):
             return "dashed"
         return "solid"
 

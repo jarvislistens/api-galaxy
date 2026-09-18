@@ -410,10 +410,10 @@ def compute_impact(
                         status=status,
                         distance=distance,
                         reason=_reason_for(status, distance, via_inference),
-                        chain=list(reversed(chain)),
-                        chain_labels=[
-                            index[c].label for c in reversed(chain) if c in index
-                        ],
+                        # Origin first, affected node last — the chain reads in the same
+                        # direction the shockwave travels, and `len(chain) == distance + 1`.
+                        chain=list(chain),
+                        chain_labels=[index[c].label for c in chain if c in index],
                         evidence=dependent.evidence[:1],
                     ),
                 )

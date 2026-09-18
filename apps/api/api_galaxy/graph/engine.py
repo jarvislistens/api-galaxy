@@ -14,7 +14,24 @@ from typing import Protocol
 
 import networkx as nx
 
-from api_galaxy.contracts.graph import EdgeType, GraphEdge, GraphNode, KnowledgeGraph, NodeType
+from api_galaxy.contracts.graph import (
+    Acceptance,
+    EdgeType,
+    GraphEdge,
+    GraphNode,
+    KnowledgeGraph,
+    NodeType,
+)
+
+
+def _is_stated(element: GraphNode | GraphEdge) -> bool:
+    """True only for things the specification actually says.
+
+    This has to agree exactly with ``GraphEdge.stroke``: "hide inferences" and "draw it
+    solid" must mean the same thing, or the filtered view shows dashed edges. A
+    deterministic rule that merely *proposes* — alias detection — is not a stated fact.
+    """
+    return element.provenance.source_kind.is_fact and element.acceptance is Acceptance.OBSERVED
 
 DEFAULT_MAX_DEPTH = 4
 DEFAULT_MAX_NODES = 600
@@ -385,7 +402,7 @@ class NetworkXGraphRepository:
                 or needle in n.id.lower()
             ]
         if not include_inferred:
-            nodes = [n for n in nodes if n.is_fact]
+            nodes = [n for n in nodes if _is_stated(n)]
 
         truncated = False
         reason = ""
@@ -396,7 +413,7 @@ class NetworkXGraphRepository:
         keep = {n.id for n in nodes}
         edges = [e for e in self.document.edges if e.source in keep and e.target in keep]
         if not include_inferred:
-            edges = [e for e in edges if e.is_fact]
+            edges = [e for e in edges if _is_stated(e)]
         return Subgraph(nodes=nodes, edges=edges, truncated=truncated, truncation_reason=reason)
 
     def search(self, needle: str, *, limit: int = 30) -> list[GraphNode]:

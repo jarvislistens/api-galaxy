@@ -1,0 +1,218 @@
+@import "tailwindcss";
+
+/*
+  API Galaxy design tokens.
+
+  One dark theme, done properly, rather than two half-finished ones. The palette is
+  near-black through graphite to soft silver, with a narrow spectral accent range used
+  only where it carries meaning — never as decoration.
+
+  Meaning is never encoded by colour alone: every state below also has a stroke pattern,
+  an icon and a text label somewhere in the UI.
+*/
+
+@theme {
+  --color-void: #06070a;
+  --color-base: #0a0c10;
+  --color-surface: #101319;
+  --color-surface-2: #161a22;
+  --color-surface-3: #1d222c;
+  --color-line: #242a35;
+  --color-line-strong: #333b49;
+
+  --color-ink: #f4f6fa;
+  --color-ink-2: #c3cad6;
+  --color-muted: #8b94a4;
+  --color-dim: #626b7b;
+
+  --color-accent: #7c8cf8;
+  --color-accent-soft: #9aa6fb;
+  --color-cyan: #55c8ea;
+  --color-violet: #bb8cf5;
+
+  /* Evidence semantics */
+  --color-fact: #8fa7c4;
+  --color-inferred: #e0a83c;
+  --color-user: #7c8cf8;
+
+  /* Status semantics */
+  --color-broken: #f2585f;
+  --color-degraded: #e0a83c;
+  --color-possible: #7f8798;
+  --color-ok: #45cf9b;
+
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo,
+    Consolas, monospace;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.5), 0 24px 48px -24px rgb(0 0 0 / 0.75);
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background: var(--color-base);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.55;
+    letter-spacing: -0.005em;
+    /* The page itself must never scroll sideways; wide content scrolls inside its own box. */
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4 {
+    letter-spacing: -0.022em;
+    font-weight: 560;
+  }
+
+  code, pre, .mono {
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+  }
+
+  /* A focus ring you can actually see, on every interactive element. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-accent) 40%, transparent);
+    color: var(--color-ink);
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line-strong);
+    border-radius: 99px;
+    border: 3px solid var(--color-base);
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-dim); }
+}
+
+@layer components {
+  .panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+  }
+
+  .panel-raised {
+    background: linear-gradient(180deg, var(--color-surface-2), var(--color-surface));
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .hairline {
+    border-top: 1px solid var(--color-line);
+  }
+
+  .label-eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--color-dim);
+  }
+
+  .numeral {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  /* Wide content (tables, code, diagrams) scrolls here, not on <body>. */
+  .scroll-x {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+
+  .grain {
+    position: relative;
+  }
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: radial-gradient(circle at 1px 1px, #fff 1px, transparent 0);
+    background-size: 4px 4px;
+  }
+}
+
+/*
+  Motion policy: transitions explain a change of state. When the reader has asked the
+  operating system for less motion, every animation collapses to an instant state change
+  rather than a slower one — a slow animation is still motion.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes ag-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ag-pulse-ring {
+  0% { opacity: 0.85; transform: scale(0.85); }
+  70% { opacity: 0; transform: scale(1.9); }
+  100% { opacity: 0; transform: scale(1.9); }
+}
+
+@keyframes ag-shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-2) 25%,
+    var(--color-surface-3) 37%,
+    var(--color-surface-2) 63%
+  );
+  background-size: 200% 100%;
+  animation: ag-shimmer 1.4s linear infinite;
+  border-radius: var(--radius-sm);
+}
+
+@media print {
+  body { background: #fff; color: #111; }
+  .no-print { display: none !important; }
+}

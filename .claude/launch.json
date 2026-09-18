@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["-m", "uvicorn", "api_galaxy.app.main:app", "--host", "127.0.0.1", "--port", "8099", "--app-dir", "apps/api"],
+      "port": 8099
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "apps/web", "run", "dev"],
+      "port": 3000
+    }
+  ]
+}

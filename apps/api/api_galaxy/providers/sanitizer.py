@@ -37,7 +37,10 @@ REDACTION_RULES: tuple[RedactionRule, ...] = (
           "[REDACTED_PRIVATE_KEY]", "Private keys must never leave the machine."),
     _rule("jwt", r"\bey[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b",
           "[REDACTED_JWT]", "Looks like a JSON Web Token."),
-    _rule("bearer", r"\b(?:bearer|token|authorization)\s*[:=]\s*[\"']?[A-Za-z0-9._\-]{16,}",
+    # `Authorization: Bearer <token>` has the scheme name between the colon and the
+    # secret, so the optional `bearer` group is what lets the value itself match.
+    _rule("bearer",
+          r"\b(?:bearer|token|authorization)\b\s*[:=]?\s*(?:bearer\s+)?[\"']?[A-Za-z0-9._\-]{16,}",
           "[REDACTED_BEARER]", "Looks like an authorization header value."),
     _rule("api_key_assignment",
           r"\b(?:api[_-]?key|apikey|secret|client[_-]?secret|access[_-]?token|refresh[_-]?token|"
@@ -53,13 +56,19 @@ REDACTION_RULES: tuple[RedactionRule, ...] = (
           "Matches an API key prefix.", 0),
     _rule("email", r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b",
           "[REDACTED_EMAIL]", "Email addresses are personal data."),
-    # The trailing guard is `(?!\d)` rather than `(?![\w.])`: a number at the end of a
-    # sentence is followed by a full stop, and excluding '.' made the rule silently miss
-    # every phone number written in prose.
-    _rule("phone", r"(?<![\w+])\+?\d[\d\s().-]{7,16}\d(?!\d)",
-          "[REDACTED_PHONE]", "Looks like a telephone number.", 0),
-    _rule("card", r"\b(?:\d[ -]*?){13,19}\b", "[REDACTED_CARD]",
+    # Card before phone, deliberately. A 16-digit card number also satisfies the phone
+    # pattern, and whichever rule runs first consumes it — so the more specific and more
+    # sensitive classification has to go first.
+    _rule("card", r"(?<![\d\-])(?:\d[ \-]?){12,18}\d(?![\d\-])", "[REDACTED_CARD]",
           "Looks like a payment card number.", 0),
+    # Two guards worth the noise:
+    #  * the trailing `(?!\d)` rather than `(?![\w.])` — a number at the end of a sentence
+    #    is followed by a full stop, and excluding '.' missed every number written in prose;
+    #  * the leading date lookahead — `2026-09-19` otherwise matches, and silently
+    #    redacting every date out of a specification's descriptions makes the context we
+    #    send a model worse for no privacy gain.
+    _rule("phone", r"(?<![\w+])(?!\d{4}-\d{2}-\d{2})\+?\d[\d\s().-]{7,16}\d(?!\d)",
+          "[REDACTED_PHONE]", "Looks like a telephone number.", 0),
     _rule("cookie", r"\b(?:set-)?cookie\s*[:=]\s*[^\s;]{8,}", "[REDACTED_COOKIE]",
           "Cookies carry session identity."),
     _rule("private_host",
