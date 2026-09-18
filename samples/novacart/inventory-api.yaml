@@ -1,0 +1,458 @@
+openapi: 3.0.3
+x-api-galaxy-domain: Inventory
+info:
+  title: NovaCart Inventory API
+  version: 1.4.3
+  description: >-
+    Warehouse stock positions and the soft-reservation ledger that protects them. Availability is tracked per
+    SKU per warehouse; orders take a short-lived reservation at placement and commit it once payment is safe,
+    which is what stops two shoppers buying the last unit of the same article.
+  contact:
+    name: NovaCart Supply Chain Systems Team
+    email: supply-chain-systems@novacart.example
+servers:
+  - url: https://api.novacart.example/inventory/v1
+    description: Production edge gateway for the Inventory domain.
+  - url: https://sandbox.api.novacart.example/inventory/v1
+    description: Sandbox stock ledger with fictional warehouses and unlimited replenishment.
+tags:
+  - name: Stock
+    description: Current availability of a SKU across the warehouse network.
+  - name: Reservations
+    description: Soft holds placed on stock while an order works its way through checkout.
+security:
+  - bearerAuth: []
+paths:
+  /inventory/{sku}:
+    get:
+      operationId: getInventory
+      summary: Read stock for a SKU
+      description: >-
+        Returns the current stock position for a stock-keeping unit, broken down by warehouse into units that
+        are freely available and units already reserved against open orders. The storefront uses this to show
+        the in-stock badge.
+      tags: [Stock]
+      parameters:
+        - $ref: '#/components/parameters/SkuParam'
+        - name: warehouseId
+          in: query
+          required: false
+          description: Restricts the answer to a single warehouse instead of the whole network.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Stock positions for the SKU, one entry per warehouse holding it.
+          content:
+            application/json:
+              schema:
+                type: array
+                description: Per-warehouse stock positions for the requested SKU.
+                items:
+                  $ref: '#/components/schemas/InventoryItem'
+              example:
+                - sku: NC-KTL-0099
+                  warehouse_id: whs_fernwood
+                  available: 42
+                  reserved: 6
+                - sku: NC-KTL-0099
+                  warehouse_id: whs_brightmoor
+                  available: 11
+                  reserved: 0
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /reservations:
+    post:
+      operationId: reserveInventory
+      summary: Reserve stock for an order
+      description: >-
+        Places a short-lived soft hold on stock for every SKU on an order so the units cannot be sold twice
+        while checkout completes. Reservations expire automatically if they are not committed before their
+        `expires_at` moment.
+      tags: [Reservations]
+      requestBody:
+        required: true
+        description: The order and the SKUs and quantities that should be held for it.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReserveRequest'
+            example:
+              order_id: ord_7Kp3Vb
+              warehouse_id: whs_fernwood
+              lines:
+                - sku: NC-KTL-0099
+                  quantity: 1
+                - sku: NC-MUG-0412
+                  quantity: 2
+      responses:
+        '201':
+          description: Soft holds were placed and the resulting reservations are returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                description: One reservation record per SKU that was successfully held.
+                items:
+                  $ref: '#/components/schemas/Reservation'
+              example:
+                - reservation_id: rsv_9Qb1Fh
+                  order_id: ord_7Kp3Vb
+                  sku: NC-KTL-0099
+                  quantity: 1
+                  status: held
+                  expires_at: "2031-03-02T14:49:55Z"
+                - reservation_id: rsv_4Ln7Dm
+                  order_id: ord_7Kp3Vb
+                  sku: NC-MUG-0412
+                  quantity: 2
+                  status: held
+                  expires_at: "2031-03-02T14:49:55Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: One or more lines could not be held because available stock was too low.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: insufficient_stock
+                message: Only 1 unit of NC-MUG-0412 is available and 2 were requested.
+                details:
+                  - field: lines[1].quantity
+                    issue: insufficient_stock
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    get:
+      operationId: listReservations
+      summary: List reservations
+      description: >-
+        Returns reservations for operational dashboards, optionally narrowed to one order or one status.
+        Pages with `limit` and `offset` in the same offset style the Catalog domain uses.
+      tags: [Reservations]
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+        - name: orderId
+          in: query
+          required: false
+          description: Restricts the result set to reservations taken for a single order.
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Restricts the result set to reservations in one lifecycle state.
+          schema:
+            type: string
+            enum: [held, committed, released, expired]
+      responses:
+        '200':
+          description: A window of reservation records selected by limit and offset.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Envelope carrying one window of reservations plus the offset counters.
+                properties:
+                  limit:
+                    type: integer
+                    description: Maximum number of records the caller asked for in this window.
+                  offset:
+                    type: integer
+                    description: Zero-based index of the first record in this window.
+                  total:
+                    type: integer
+                    description: Total number of reservations matching the filters across all windows.
+                  items:
+                    type: array
+                    description: The reservation records contained in this window.
+                    items:
+                      $ref: '#/components/schemas/Reservation'
+              example:
+                limit: 2
+                offset: 0
+                total: 118
+                items:
+                  - reservation_id: rsv_9Qb1Fh
+                    order_id: ord_7Kp3Vb
+                    sku: NC-KTL-0099
+                    quantity: 1
+                    status: committed
+                    expires_at: "2031-03-02T14:49:55Z"
+                  - reservation_id: rsv_4Ln7Dm
+                    order_id: ord_7Kp3Vb
+                    sku: NC-MUG-0412
+                    quantity: 2
+                    status: committed
+                    expires_at: "2031-03-02T14:49:55Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /reservations/{reservationId}:
+    delete:
+      operationId: cancelReservation
+      summary: Release a reservation
+      description: >-
+        Releases a soft hold early and returns the units to available stock. Order cancellation and checkout
+        abandonment both trigger this so stock is not stranded until the reservation expires on its own.
+      tags: [Reservations]
+      parameters:
+        - $ref: '#/components/parameters/ReservationIdParam'
+      responses:
+        '204':
+          description: The hold was released and the units returned to available stock.
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The reservation was already committed and can no longer be released.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: reservation_already_committed
+                message: Reservation rsv_9Qb1Fh was committed and cannot be released.
+                details: []
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /reservations/{reservationId}/commit:
+    post:
+      operationId: commitReservation
+      summary: Commit a reservation to a pick
+      description: >-
+        Converts a soft hold into a firm allocation that the warehouse will pick, permanently decrementing
+        available stock. The operation re-reads the order first to confirm it is still live and has not been
+        cancelled since the hold was taken.
+      tags: [Reservations]
+      x-api-galaxy-depends-on:
+        - service: order-api
+          operationId: getOrder
+          reason: Confirms the order is still live and its lines still match the held quantities.
+      parameters:
+        - $ref: '#/components/parameters/ReservationIdParam'
+      responses:
+        '200':
+          description: The reservation after it was committed to a firm warehouse allocation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+              example:
+                reservation_id: rsv_9Qb1Fh
+                order_id: ord_7Kp3Vb
+                sku: NC-KTL-0099
+                quantity: 1
+                status: committed
+                expires_at: "2031-03-02T14:49:55Z"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The reservation has expired or was already released and cannot be committed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: reservation_expired
+                message: Reservation rsv_9Qb1Fh expired at 14:49:55Z and cannot be committed.
+                details: []
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Short-lived JWT access token issued by the NovaCart identity provider. Reservation writes require a
+        fulfilment service scope; stock reads are available to any authenticated storefront principal.
+  parameters:
+    SkuParam:
+      name: sku
+      in: path
+      required: true
+      description: Stock-keeping unit to inspect, for example `NC-KTL-0099`.
+      schema:
+        type: string
+    ReservationIdParam:
+      name: reservationId
+      in: path
+      required: true
+      description: Identifier of the reservation, for example `rsv_9Qb1Fh`.
+      schema:
+        type: string
+    LimitParam:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of reservations to return in this window; Inventory pages by offset.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    OffsetParam:
+      name: offset
+      in: query
+      required: false
+      description: Zero-based index of the first reservation to return in this window.
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+  responses:
+    BadRequest:
+      description: The request payload or query string failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: invalid_request
+            message: Each reservation line must carry a positive integer quantity.
+            details:
+              - field: lines[0].quantity
+                issue: minimum
+    Unauthorized:
+      description: The bearer token is missing, expired or lacks the fulfilment scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: unauthorized
+            message: A valid bearer token with inventory scope is required.
+            details: []
+    NotFound:
+      description: No stock record or reservation exists for the supplied identifier.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: sku_not_found
+            message: No stock record was found for SKU NC-UNKNOWN-0000.
+            details: []
+  schemas:
+    InventoryItem:
+      type: object
+      description: >-
+        The stock position of one SKU in one warehouse. Sellable quantity is `available` minus nothing:
+        units already spoken for are counted separately under `reserved`.
+      required: [sku, warehouse_id, available]
+      properties:
+        sku:
+          type: string
+          description: Stock-keeping unit this position describes, shared with Catalog, Cart and Order.
+          example: NC-KTL-0099
+        warehouse_id:
+          type: string
+          description: Identifier of the warehouse holding the stock.
+          example: whs_fernwood
+        available:
+          type: integer
+          description: Units on hand and free to be sold right now.
+          example: 42
+        reserved:
+          type: integer
+          description: Units currently held by open reservations and therefore not sellable.
+          example: 6
+    Reservation:
+      type: object
+      description: >-
+        A soft hold on stock taken for an order. It expires on its own if nothing commits it, which keeps
+        abandoned checkouts from stranding inventory.
+      required: [reservation_id, order_id, sku, quantity, status]
+      properties:
+        reservation_id:
+          type: string
+          description: Identifier of this hold, used to commit or release it later.
+          example: rsv_9Qb1Fh
+        order_id:
+          type: string
+          description: Identifier of the order the hold was taken for, as issued by the Order API.
+          example: ord_7Kp3Vb
+        sku:
+          type: string
+          description: Stock-keeping unit being held.
+          example: NC-KTL-0099
+        quantity:
+          type: integer
+          description: Number of units held for this SKU.
+          example: 1
+        status:
+          type: string
+          description: Lifecycle state of the hold.
+          enum: [held, committed, released, expired]
+          example: held
+        expires_at:
+          type: string
+          format: date-time
+          description: Moment the hold lapses automatically if it has not been committed, in UTC.
+          example: "2031-03-02T14:49:55Z"
+    ReserveRequest:
+      type: object
+      description: Instruction to hold stock for every line on an order in a single atomic call.
+      required: [order_id, lines]
+      properties:
+        order_id:
+          type: string
+          description: Identifier of the order the holds belong to.
+          example: ord_7Kp3Vb
+        warehouse_id:
+          type: string
+          description: Preferred warehouse to hold from; omit to let the router choose the closest.
+          example: whs_fernwood
+        lines:
+          type: array
+          description: The SKUs and quantities to hold; the whole set succeeds or the whole set fails.
+          items:
+            type: object
+            description: One SKU and quantity to hold for the order.
+            required: [sku, quantity]
+            properties:
+              sku:
+                type: string
+                description: Stock-keeping unit to hold.
+                example: NC-MUG-0412
+              quantity:
+                type: integer
+                minimum: 1
+                description: Number of units to hold for this SKU.
+                example: 2
+    Error:
+      type: object
+      description: >-
+        Standard Inventory domain error envelope, the same shape used by Customer and Catalog and distinct
+        from the RFC 7807 problem document returned by Cart, Order, Payment and Shipping.
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable error code clients can branch on.
+          example: insufficient_stock
+        message:
+          type: string
+          description: Human-readable explanation of what went wrong, safe to log.
+          example: Only 1 unit of NC-MUG-0412 is available and 2 were requested.
+        details:
+          type: array
+          description: Optional per-field breakdown explaining which inputs were rejected and why.
+          items:
+            type: object
+            description: A single field-level validation complaint.
+            properties:
+              field:
+                type: string
+                description: Name or JSON path of the offending request field.
+                example: lines[1].quantity
+              issue:
+                type: string
+                description: Short token describing the nature of the problem with that field.
+                example: insufficient_stock

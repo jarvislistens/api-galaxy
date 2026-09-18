@@ -1,0 +1,166 @@
+[
+  {
+    "rule_id": "alias-ambiguity",
+    "defect": 1,
+    "severity": "high",
+    "expected_hits": 3,
+    "title": "One customer concept travels under three different field names",
+    "description": "The same shopper identity is called customer_id in Customer and Cart, cust_no in Order and party_key in Payment. Nothing in the specs states that these are the same thing, so any consumer joining orders to payments has to know the mapping by folklore. This is the estate's single most expensive naming defect because it sits directly on the checkout path.",
+    "locations": [
+      "customer-api.yaml#/components/schemas/Customer/properties/customer_id",
+      "order-api.yaml#/components/schemas/Order/properties/cust_no",
+      "payment-api.yaml#/components/schemas/Payment/properties/party_key"
+    ]
+  },
+  {
+    "rule_id": "missing-auth-on-sensitive-operation",
+    "defect": 2,
+    "severity": "high",
+    "expected_hits": 1,
+    "title": "Unauthenticated endpoint returns shopper contact details",
+    "description": "GET /public/customers/{customerId}/summary sets security to an empty array, overriding the root bearerAuth requirement, yet the CustomerSummary it returns carries the shopper's email address, telephone number and loyalty tier. Anyone who can guess or enumerate a customer_id can harvest contact data without a token.",
+    "locations": [
+      "customer-api.yaml#/paths/~1public~1customers~1{customerId}~1summary/get",
+      "customer-api.yaml#/paths/~1public~1customers~1{customerId}~1summary/get/security"
+    ]
+  },
+  {
+    "rule_id": "pii-exposure",
+    "defect": 2,
+    "severity": "high",
+    "expected_hits": 4,
+    "title": "Personally identifying fields reachable without authentication",
+    "description": "The PII dictionary matches email, phone, full_name, date_of_birth and card_last4 across the estate. Most of those sit behind bearer auth, but the email, phone and full_name on CustomerSummary are served by an operation with no security at all, which turns a routine PII inventory finding into an actual exposure.",
+    "locations": [
+      "customer-api.yaml#/components/schemas/CustomerSummary/properties/email",
+      "customer-api.yaml#/components/schemas/CustomerSummary/properties/phone",
+      "customer-api.yaml#/components/schemas/Customer/properties/date_of_birth",
+      "payment-api.yaml#/components/schemas/Payment/properties/card_last4"
+    ]
+  },
+  {
+    "rule_id": "identifier-crosses-multiple-services",
+    "defect": 3,
+    "severity": "high",
+    "expected_hits": 1,
+    "title": "Checkout carries the customer identifier through three services under three names",
+    "description": "Following the Place Order journey, the shopper identity is read as customer_id from the cart, sent to the order as cust_no and forwarded to the payment as party_key. A rename or a format change at any one of those hops silently breaks checkout, and no contract in the estate records the coupling.",
+    "locations": [
+      "cart-api.yaml#/components/schemas/Cart/properties/customer_id",
+      "order-api.yaml#/components/schemas/PlaceOrderRequest/properties/cust_no",
+      "payment-api.yaml#/components/schemas/AuthorizePaymentRequest/properties/party_key"
+    ]
+  },
+  {
+    "rule_id": "inconsistent-error-model",
+    "defect": 4,
+    "severity": "medium",
+    "expected_hits": 2,
+    "title": "Two incompatible error envelopes across one estate",
+    "description": "Customer, Catalog and Inventory return a code, message and details object, while Cart, Order, Payment and Shipping return an RFC 7807 problem document with type, title, status, detail and instance. A client walking the checkout path has to implement two error handlers and cannot reliably branch on a single failure code.",
+    "locations": [
+      "customer-api.yaml#/components/schemas/Error",
+      "catalog-api.yaml#/components/schemas/Error",
+      "inventory-api.yaml#/components/schemas/Error",
+      "cart-api.yaml#/components/schemas/ProblemResponse",
+      "order-api.yaml#/components/schemas/ProblemResponse",
+      "payment-api.yaml#/components/schemas/ProblemResponse",
+      "shipping-api.yaml#/components/schemas/ProblemResponse"
+    ]
+  },
+  {
+    "rule_id": "type-change-across-boundary",
+    "defect": 5,
+    "severity": "high",
+    "expected_hits": 1,
+    "title": "The order total is a number but the payment amount is a string",
+    "description": "Order models total_amount as type number with format double, while Payment models the very same money value as type string with format decimal. Every integration between the two has to serialise across that boundary, and a naive float-to-string conversion is exactly how a 138.0 becomes a 137.99999999999999 in the ledger.",
+    "locations": [
+      "order-api.yaml#/components/schemas/Order/properties/total_amount",
+      "payment-api.yaml#/components/schemas/Payment/properties/amount",
+      "payment-api.yaml#/components/schemas/AuthorizePaymentRequest/properties/amount"
+    ]
+  },
+  {
+    "rule_id": "deprecated-operation-in-journey",
+    "defect": 6,
+    "severity": "medium",
+    "expected_hits": 1,
+    "title": "A deprecated operation is still the documented way to check out",
+    "description": "POST /carts/{cartId}/checkout is flagged deprecated: true, but its own description admits the storefront and the published integration guide still call it, and it is the only operation that converts a basket into an order on the caller's behalf. Deprecating an operation nobody has migrated off is a scheduled outage rather than a cleanup.",
+    "locations": [
+      "cart-api.yaml#/paths/~1carts~1{cartId}~1checkout/post",
+      "cart-api.yaml#/paths/~1carts~1{cartId}~1checkout/post/deprecated"
+    ]
+  },
+  {
+    "rule_id": "circular-dependency",
+    "defect": 7,
+    "severity": "medium",
+    "expected_hits": 1,
+    "title": "Order and Inventory depend on each other",
+    "description": "placeOrder declares a dependency on reserveInventory, and commitReservation declares a dependency back on getOrder. Both specs are individually valid, but together they form a two-service cycle that makes deployment ordering, contract testing and failure containment genuinely awkward.",
+    "locations": [
+      "order-api.yaml#/paths/~1orders/post/x-api-galaxy-depends-on/2",
+      "inventory-api.yaml#/paths/~1reservations~1{reservationId}~1commit/post/x-api-galaxy-depends-on/0"
+    ]
+  },
+  {
+    "rule_id": "inconsistent-pagination",
+    "defect": 8,
+    "severity": "medium",
+    "expected_hits": 3,
+    "title": "Three different pagination styles in one estate",
+    "description": "Customer, Order and Shipping page with one-based page plus size, Catalog and Inventory page with limit plus offset, and catalogue search pages with an opaque cursor. Any client that wants a generic list component has to implement all three, and the response envelopes differ too.",
+    "locations": [
+      "customer-api.yaml#/components/parameters/PageParam",
+      "order-api.yaml#/components/parameters/PageParam",
+      "shipping-api.yaml#/components/parameters/PageParam",
+      "catalog-api.yaml#/components/parameters/LimitParam",
+      "inventory-api.yaml#/components/parameters/LimitParam",
+      "catalog-api.yaml#/components/parameters/CursorParam"
+    ]
+  },
+  {
+    "rule_id": "inferable-undeclared-relationship",
+    "defect": 9,
+    "severity": "low",
+    "expected_hits": 1,
+    "title": "Shipping's destination is an unlinked copy of the customer address",
+    "description": "The destination object on Shipment and CreateShipmentRequest has the same shape and the same field meanings as the Customer API's Address schema, right down to line1, line2, city, region, postal_code and country. No shared schema, no reference and no x-api-galaxy-depends-on records the relationship, so only a semantic reader can spot that the two are the same business concept.",
+    "locations": [
+      "shipping-api.yaml#/components/schemas/Shipment/properties/destination",
+      "shipping-api.yaml#/components/schemas/CreateShipmentRequest/properties/destination",
+      "customer-api.yaml#/components/schemas/Address"
+    ]
+  },
+  {
+    "rule_id": "orphaned-schema",
+    "defect": null,
+    "severity": "low",
+    "expected_hits": 1,
+    "title": "A component schema nothing references",
+    "description": "LegacyPromoCode is defined in the catalogue's components but is not referenced by any operation, response or other schema. It is dead weight left behind by the retired 2028 campaign engine and is included here so the orphan rule has exactly one honest hit.",
+    "locations": [
+      "catalog-api.yaml#/components/schemas/LegacyPromoCode"
+    ]
+  },
+  {
+    "rule_id": "broken-reference",
+    "defect": null,
+    "severity": "high",
+    "expected_hits": 0,
+    "title": "No broken internal references",
+    "description": "Every $ref in all seven specs resolves to a component that exists. This rule is expected to report zero findings, which makes it the control case that proves the checker runs at all rather than silently passing.",
+    "locations": []
+  },
+  {
+    "rule_id": "duplicate-operation-id",
+    "defect": null,
+    "severity": "medium",
+    "expected_hits": 0,
+    "title": "No duplicate operation identifiers",
+    "description": "All thirty-two operations across the estate carry a unique camelCase operationId, and no identifier is reused within or across services. This rule is expected to report zero findings.",
+    "locations": []
+  }
+]

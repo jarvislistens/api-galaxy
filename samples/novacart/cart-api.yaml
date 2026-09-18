@@ -1,0 +1,428 @@
+openapi: 3.0.3
+x-api-galaxy-domain: Cart
+info:
+  title: NovaCart Cart API
+  version: 1.9.0
+  description: >-
+    Holds the shopper's in-progress basket between browsing and ordering. A cart is a short-lived,
+    mutable document keyed by `cart_id` and owned by a `customer_id`; it keeps line items, a running
+    subtotal and the handover point into the Order domain.
+  contact:
+    name: NovaCart Checkout Experience Team
+    email: checkout-experience@novacart.example
+servers:
+  - url: https://api.novacart.example/cart/v1
+    description: Production edge gateway for the Cart domain.
+  - url: https://sandbox.api.novacart.example/cart/v1
+    description: Sandbox carts that are purged nightly, for integration testing.
+tags:
+  - name: Carts
+    description: Lifecycle of the shopper's basket document.
+  - name: Cart Items
+    description: Line items held inside a basket.
+  - name: Checkout
+    description: The handover from a basket into a placed order.
+security:
+  - bearerAuth: []
+paths:
+  /carts:
+    post:
+      operationId: createCart
+      summary: Open a new basket
+      description: >-
+        Opens an empty basket for a shopper and returns the `cart_id` the storefront will carry for the rest
+        of the session. The supplied `customer_id` is the same canonical shopper identifier issued by the
+        Customer API.
+      tags: [Carts]
+      requestBody:
+        required: true
+        description: Identifies the shopper the new basket belongs to and the currency it is priced in.
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Request body for opening a basket.
+              required: [customer_id]
+              properties:
+                customer_id:
+                  type: string
+                  description: Canonical NovaCart shopper identifier that will own this basket.
+                  example: cus_8Fq2K1nLbZ
+                currency:
+                  type: string
+                  description: ISO 4217 currency the basket should be priced in; defaults to USD.
+                  example: USD
+            example:
+              customer_id: cus_8Fq2K1nLbZ
+              currency: USD
+      responses:
+        '201':
+          description: An empty basket was opened for the shopper.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+              example:
+                cart_id: crt_5Nd8Yx
+                customer_id: cus_8Fq2K1nLbZ
+                items: []
+                subtotal: 0.0
+                currency: USD
+                updated_at: "2031-03-02T14:11:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /carts/{cartId}:
+    get:
+      operationId: getCart
+      summary: Read a basket
+      description: >-
+        Returns the current state of a basket, including every line item and the recalculated subtotal.
+        Order placement reads the basket through this operation to confirm its contents and price before
+        an order is written.
+      tags: [Carts]
+      parameters:
+        - $ref: '#/components/parameters/CartIdParam'
+      responses:
+        '200':
+          description: The current basket document.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+              example:
+                cart_id: crt_5Nd8Yx
+                customer_id: cus_8Fq2K1nLbZ
+                items:
+                  - item_id: cli_01
+                    product_id: prd_L4m2Xc
+                    sku: NC-KTL-0099
+                    quantity: 1
+                    unit_price: 89.0
+                  - item_id: cli_02
+                    product_id: prd_P8r0Qd
+                    sku: NC-MUG-0412
+                    quantity: 2
+                    unit_price: 24.5
+                subtotal: 138.0
+                currency: USD
+                updated_at: "2031-03-02T14:18:42Z"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /carts/{cartId}/items:
+    post:
+      operationId: addCartItem
+      summary: Add a line to the basket
+      description: >-
+        Adds a product to the basket or increases the quantity if the same SKU is already present. The unit
+        price is snapshotted from the catalogue at the moment of the call so later price changes do not
+        silently alter an open basket.
+      tags: [Cart Items]
+      parameters:
+        - $ref: '#/components/parameters/CartIdParam'
+      requestBody:
+        required: true
+        description: The product and quantity to place in the basket.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddItemRequest'
+            example:
+              product_id: prd_L4m2Xc
+              sku: NC-KTL-0099
+              quantity: 1
+      responses:
+        '201':
+          description: The basket after the line was added, with the subtotal recalculated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+              example:
+                cart_id: crt_5Nd8Yx
+                customer_id: cus_8Fq2K1nLbZ
+                items:
+                  - item_id: cli_01
+                    product_id: prd_L4m2Xc
+                    sku: NC-KTL-0099
+                    quantity: 1
+                    unit_price: 89.0
+                subtotal: 89.0
+                currency: USD
+                updated_at: "2031-03-02T14:15:09Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /carts/{cartId}/items/{itemId}:
+    delete:
+      operationId: removeCartItem
+      summary: Remove a line from the basket
+      description: >-
+        Removes a single line from the basket entirely and recalculates the subtotal. Reducing a quantity
+        rather than deleting the line is done by removing and re-adding with the smaller quantity.
+      tags: [Cart Items]
+      parameters:
+        - $ref: '#/components/parameters/CartIdParam'
+        - $ref: '#/components/parameters/ItemIdParam'
+      responses:
+        '204':
+          description: The line was removed and the basket subtotal was recalculated.
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /carts/{cartId}/checkout:
+    post:
+      operationId: checkoutCart
+      summary: Start checkout for a basket
+      description: >-
+        Converts a basket into a placed order by calling the Order domain on the caller's behalf, then seals
+        the basket so it can no longer be edited. This operation is marked deprecated in favour of calling
+        Order directly, yet it remains the route the storefront and the published integration guide still
+        use, so it is very much a live part of the checkout journey.
+      tags: [Checkout]
+      deprecated: true
+      x-api-galaxy-depends-on:
+        - service: order-api
+          operationId: placeOrder
+          reason: Delegates basket-to-order conversion to the Order domain and returns the resulting order.
+      parameters:
+        - $ref: '#/components/parameters/CartIdParam'
+      requestBody:
+        required: true
+        description: Payment instrument and delivery choice needed to turn the basket into an order.
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Checkout instruction for sealing a basket into an order.
+              required: [payment_method_token]
+              properties:
+                payment_method_token:
+                  type: string
+                  description: Vaulted payment instrument token supplied by the hosted card field.
+                  example: pmt_tok_9Zx4Ke
+                shipping_address_id:
+                  type: string
+                  description: Identifier of the shopper's saved address the parcel should go to.
+                  example: adr_7Hc4Nm
+            example:
+              payment_method_token: pmt_tok_9Zx4Ke
+              shipping_address_id: adr_7Hc4Nm
+      responses:
+        '201':
+          description: The basket was converted and the identifiers of the resulting order are returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Thin receipt linking the sealed basket to the order the Order domain created.
+                properties:
+                  cart_id:
+                    type: string
+                    description: Identifier of the basket that was sealed by this checkout.
+                  order_id:
+                    type: string
+                    description: Identifier of the order the Order domain created from the basket.
+                  status:
+                    type: string
+                    description: Lifecycle state the newly created order was accepted in.
+              example:
+                cart_id: crt_5Nd8Yx
+                order_id: ord_7Kp3Vb
+                status: pending_payment
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The basket is empty or has already been checked out.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+              example:
+                type: https://docs.novacart.example/problems/cart-already-checked-out
+                title: Cart already checked out
+                status: 409
+                detail: Cart crt_5Nd8Yx was sealed by an earlier checkout and cannot be reused.
+                instance: /carts/crt_5Nd8Yx/checkout
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Short-lived JWT access token issued by the NovaCart identity provider. The token subject must match
+        the `customer_id` that owns the basket being read or modified.
+  parameters:
+    CartIdParam:
+      name: cartId
+      in: path
+      required: true
+      description: Identifier of the basket, for example `crt_5Nd8Yx`.
+      schema:
+        type: string
+    ItemIdParam:
+      name: itemId
+      in: path
+      required: true
+      description: Identifier of a single line inside the basket, for example `cli_01`.
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: The request payload failed validation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: https://docs.novacart.example/problems/invalid-request
+            title: Invalid request
+            status: 400
+            detail: The field 'quantity' must be a positive integer.
+            instance: /carts/crt_5Nd8Yx/items
+    Unauthorized:
+      description: The bearer token is missing, expired or does not own this basket.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: https://docs.novacart.example/problems/unauthorized
+            title: Unauthorized
+            status: 401
+            detail: A valid bearer token owned by the cart holder is required.
+            instance: /carts/crt_5Nd8Yx
+    NotFound:
+      description: No basket or basket line exists for the supplied identifiers.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: https://docs.novacart.example/problems/cart-not-found
+            title: Cart not found
+            status: 404
+            detail: No cart was found for identifier crt_000000.
+            instance: /carts/crt_000000
+  schemas:
+    Cart:
+      type: object
+      description: >-
+        The shopper's in-progress basket. It is a working document rather than a financial record, so it is
+        freely mutable right up until checkout seals it.
+      required: [cart_id, customer_id, items, subtotal, currency]
+      properties:
+        cart_id:
+          type: string
+          description: Identifier of this basket, carried by the storefront for the whole session.
+          example: crt_5Nd8Yx
+        customer_id:
+          type: string
+          description: >-
+            Canonical NovaCart shopper identifier that owns the basket, matching `customer_id` in the
+            Customer API. Order records the same shopper as `cust_no` and Payment as `party_key`.
+          example: cus_8Fq2K1nLbZ
+        items:
+          type: array
+          description: Line items currently in the basket, one entry per distinct SKU.
+          items:
+            $ref: '#/components/schemas/CartItem'
+        subtotal:
+          type: number
+          format: double
+          description: Sum of quantity times unit price across all lines, before tax and shipping.
+          example: 138.0
+        currency:
+          type: string
+          description: ISO 4217 currency code the basket is priced in.
+          example: USD
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent change to the basket, in UTC.
+          example: "2031-03-02T14:18:42Z"
+    CartItem:
+      type: object
+      description: >-
+        A single line in the basket. The unit price is a snapshot taken when the line was added so the
+        shopper sees a stable price while they browse.
+      required: [product_id, sku, quantity, unit_price]
+      properties:
+        item_id:
+          type: string
+          description: Identifier of this line within the basket, used when removing it.
+          example: cli_01
+        product_id:
+          type: string
+          description: Catalogue product identifier the line was created from.
+          example: prd_L4m2Xc
+        sku:
+          type: string
+          description: Stock-keeping unit that Inventory will reserve and the warehouse will pick.
+          example: NC-KTL-0099
+        quantity:
+          type: integer
+          description: Number of units of this SKU the shopper intends to buy.
+          example: 2
+        unit_price:
+          type: number
+          format: double
+          description: Catalogue price per unit captured at the moment the line was added.
+          example: 24.5
+    AddItemRequest:
+      type: object
+      description: Instruction to place a quantity of one catalogue product into the basket.
+      required: [product_id, quantity]
+      properties:
+        product_id:
+          type: string
+          description: Catalogue product identifier of the item to add.
+          example: prd_L4m2Xc
+        sku:
+          type: string
+          description: Optional explicit SKU; when omitted the catalogue default SKU for the product is used.
+          example: NC-KTL-0099
+        quantity:
+          type: integer
+          minimum: 1
+          description: Number of units to add, which is merged into any existing line for the same SKU.
+          example: 1
+    ProblemResponse:
+      type: object
+      description: >-
+        RFC 7807 style problem document used by the Cart, Order, Payment and Shipping domains. It is a
+        different shape from the `Error` object returned by Customer, Catalog and Inventory.
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          description: Absolute URI identifying the problem class, resolvable to human documentation.
+          example: https://docs.novacart.example/problems/cart-not-found
+        title:
+          type: string
+          description: Short, human-readable summary of the problem type.
+          example: Cart not found
+        status:
+          type: integer
+          description: HTTP status code the origin server generated for this occurrence.
+          example: 404
+        detail:
+          type: string
+          description: Human-readable explanation specific to this particular occurrence.
+          example: No cart was found for identifier crt_000000.
+        instance:
+          type: string
+          description: URI reference identifying the specific occurrence of the problem.
+          example: /carts/crt_000000

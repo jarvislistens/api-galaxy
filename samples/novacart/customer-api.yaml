@@ -1,0 +1,554 @@
+openapi: 3.0.3
+x-api-galaxy-domain: Customer
+info:
+  title: NovaCart Customer API
+  version: 2.4.0
+  description: >-
+    Authoritative system of record for NovaCart shopper identity, contact details, loyalty standing and
+    saved delivery addresses. Every other NovaCart service treats the `customer_id` issued here as the
+    canonical identifier for a shopper, so this API is the root of the estate's identity graph.
+  contact:
+    name: NovaCart Identity Platform Team
+    email: identity-platform@novacart.example
+servers:
+  - url: https://api.novacart.example/customer/v1
+    description: Production edge gateway for the Customer domain.
+  - url: https://sandbox.api.novacart.example/customer/v1
+    description: Sandbox environment seeded with fictional shoppers for partner integration testing.
+tags:
+  - name: Customers
+    description: Create, read and maintain shopper profiles held in the customer master record.
+  - name: Addresses
+    description: Saved delivery and billing addresses belonging to a shopper.
+  - name: Public
+    description: >-
+      Unauthenticated endpoints intended for storefront widgets. Reviewed quarterly because anything
+      published here is readable by the open internet.
+security:
+  - bearerAuth: []
+paths:
+  /customers:
+    post:
+      operationId: createCustomer
+      summary: Register a new shopper
+      description: >-
+        Registers a new shopper in the customer master record and returns the newly minted `customer_id`
+        that every downstream NovaCart service will use to refer to this person. The email address must be
+        unique across the estate because it doubles as the sign-in credential.
+      tags: [Customers]
+      requestBody:
+        required: true
+        description: Minimum viable profile needed to open a NovaCart account.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomerRequest'
+            example:
+              email: mira.velasco@mailbox.example
+              full_name: Mira Velasco
+              phone: "+1-555-0142"
+              date_of_birth: "1991-04-17"
+      responses:
+        '201':
+          description: The shopper was registered and a canonical `customer_id` was issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+              example:
+                customer_id: cus_8Fq2K1nLbZ
+                email: mira.velasco@mailbox.example
+                full_name: Mira Velasco
+                phone: "+1-555-0142"
+                date_of_birth: "1991-04-17"
+                loyalty_tier: bronze
+                created_at: "2031-02-11T09:24:08Z"
+                addresses: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: A shopper is already registered with the supplied email address.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: customer_already_exists
+                message: A NovaCart account already uses this email address.
+                details: []
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    get:
+      operationId: listCustomers
+      summary: List shoppers page by page
+      description: >-
+        Returns a page of shopper summaries for back-office tooling such as the support console. Uses
+        one-based `page` plus `size` paging, which is the Customer domain's house style for pagination.
+      tags: [Customers]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: loyaltyTier
+          in: query
+          required: false
+          description: Restricts the result set to shoppers sitting in a single loyalty tier.
+          schema:
+            type: string
+            enum: [bronze, silver, gold, platinum]
+      responses:
+        '200':
+          description: A page of shopper records ordered by registration date, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Envelope carrying one page of shopper records plus the paging counters.
+                properties:
+                  page:
+                    type: integer
+                    description: One-based index of the page that was returned.
+                  size:
+                    type: integer
+                    description: Maximum number of records requested for this page.
+                  total:
+                    type: integer
+                    description: Total number of shoppers matching the filter across every page.
+                  items:
+                    type: array
+                    description: The shopper records contained in this page.
+                    items:
+                      $ref: '#/components/schemas/Customer'
+              example:
+                page: 1
+                size: 2
+                total: 4821
+                items:
+                  - customer_id: cus_8Fq2K1nLbZ
+                    email: mira.velasco@mailbox.example
+                    full_name: Mira Velasco
+                    phone: "+1-555-0142"
+                    date_of_birth: "1991-04-17"
+                    loyalty_tier: bronze
+                    created_at: "2031-02-11T09:24:08Z"
+                    addresses: []
+                  - customer_id: cus_3Tz9Wd0pQr
+                    email: oren.kadlec@mailbox.example
+                    full_name: Oren Kadlec
+                    phone: "+1-555-0177"
+                    date_of_birth: "1984-11-02"
+                    loyalty_tier: gold
+                    created_at: "2030-08-30T16:02:55Z"
+                    addresses: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /customers/{customerId}:
+    get:
+      operationId: getCustomer
+      summary: Fetch a single shopper profile
+      description: >-
+        Retrieves the full customer master record, including loyalty tier and saved addresses. Checkout
+        calls this operation to confirm the shopper exists and has not been blocked before an order is
+        allowed to proceed.
+      tags: [Customers]
+      parameters:
+        - $ref: '#/components/parameters/CustomerIdParam'
+      responses:
+        '200':
+          description: The requested shopper profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+              example:
+                customer_id: cus_8Fq2K1nLbZ
+                email: mira.velasco@mailbox.example
+                full_name: Mira Velasco
+                phone: "+1-555-0142"
+                date_of_birth: "1991-04-17"
+                loyalty_tier: silver
+                created_at: "2031-02-11T09:24:08Z"
+                addresses:
+                  - address_id: adr_7Hc4Nm
+                    label: Home
+                    line1: 88 Larkspur Way
+                    line2: Apt 3B
+                    city: Fernwood
+                    region: OR
+                    postal_code: "97401"
+                    country: US
+                    is_default: true
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: updateCustomer
+      summary: Amend a shopper profile
+      description: >-
+        Applies a partial update to an existing shopper. Only the supplied fields are changed, which lets
+        the support console correct a phone number or promote a loyalty tier without resubmitting the
+        whole profile.
+      tags: [Customers]
+      parameters:
+        - $ref: '#/components/parameters/CustomerIdParam'
+      requestBody:
+        required: true
+        description: Sparse object containing only the profile attributes that should change.
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Partial shopper profile; absent properties are left untouched.
+              properties:
+                full_name:
+                  type: string
+                  description: Updated legal name of the shopper as it should appear on invoices.
+                phone:
+                  type: string
+                  description: Updated contact telephone number in E.164-like display format.
+                loyalty_tier:
+                  type: string
+                  description: New loyalty tier, normally set by the loyalty batch rather than by hand.
+                  enum: [bronze, silver, gold, platinum]
+            example:
+              phone: "+1-555-0199"
+              loyalty_tier: gold
+      responses:
+        '200':
+          description: The shopper profile after the amendment was applied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+              example:
+                customer_id: cus_8Fq2K1nLbZ
+                email: mira.velasco@mailbox.example
+                full_name: Mira Velasco
+                phone: "+1-555-0199"
+                date_of_birth: "1991-04-17"
+                loyalty_tier: gold
+                created_at: "2031-02-11T09:24:08Z"
+                addresses: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /customers/{customerId}/addresses:
+    get:
+      operationId: listCustomerAddresses
+      summary: List a shopper's saved addresses
+      description: >-
+        Returns every delivery and billing address the shopper has saved, with the default address flagged.
+        Checkout uses this list to pre-select where a parcel should be sent.
+      tags: [Addresses]
+      parameters:
+        - $ref: '#/components/parameters/CustomerIdParam'
+      responses:
+        '200':
+          description: All addresses on file for the shopper.
+          content:
+            application/json:
+              schema:
+                type: array
+                description: Saved postal addresses belonging to the shopper.
+                items:
+                  $ref: '#/components/schemas/Address'
+              example:
+                - address_id: adr_7Hc4Nm
+                  label: Home
+                  line1: 88 Larkspur Way
+                  line2: Apt 3B
+                  city: Fernwood
+                  region: OR
+                  postal_code: "97401"
+                  country: US
+                  is_default: true
+                - address_id: adr_2Bq9Rt
+                  label: Office
+                  line1: 410 Quarry Street
+                  line2: Floor 7
+                  city: Fernwood
+                  region: OR
+                  postal_code: "97403"
+                  country: US
+                  is_default: false
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /public/customers/{customerId}/summary:
+    get:
+      operationId: getPublicCustomerSummary
+      summary: Public shopper summary for storefront widgets
+      description: >-
+        Returns a condensed shopper summary used by the storefront greeting widget and the loyalty badge.
+        This route deliberately carries no authentication so the widget can render before sign-in, yet the
+        payload still includes the shopper's email address, telephone number and loyalty tier.
+      tags: [Public]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CustomerIdParam'
+      responses:
+        '200':
+          description: The condensed shopper summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerSummary'
+              example:
+                customer_id: cus_8Fq2K1nLbZ
+                full_name: Mira Velasco
+                email: mira.velasco@mailbox.example
+                phone: "+1-555-0142"
+                loyalty_tier: silver
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Short-lived JWT access token issued by the NovaCart identity provider. The token subject carries the
+        acting shopper or staff principal and is checked on every authenticated Customer domain route.
+  parameters:
+    CustomerIdParam:
+      name: customerId
+      in: path
+      required: true
+      description: Canonical NovaCart customer identifier, for example `cus_8Fq2K1nLbZ`.
+      schema:
+        type: string
+    PageParam:
+      name: page
+      in: query
+      required: false
+      description: One-based page number to retrieve; the Customer domain pages with `page` plus `size`.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    SizeParam:
+      name: size
+      in: query
+      required: false
+      description: Number of records to return per page, capped at 100 to protect the datastore.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    BadRequest:
+      description: The request payload or query string failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: invalid_request
+            message: The field 'email' must be a well-formed email address.
+            details:
+              - field: email
+                issue: format
+    Unauthorized:
+      description: The bearer token is missing, expired or not valid for this resource.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: unauthorized
+            message: A valid bearer token is required to call this endpoint.
+            details: []
+    NotFound:
+      description: No shopper exists for the supplied identifier.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: customer_not_found
+            message: No customer was found for identifier cus_0000000000.
+            details: []
+  schemas:
+    Customer:
+      type: object
+      description: >-
+        The full customer master record. This is the canonical representation of a NovaCart shopper and the
+        source of truth that Order and Payment refer to under their own local identifier names.
+      required: [customer_id, email, full_name, loyalty_tier, created_at]
+      properties:
+        customer_id:
+          type: string
+          description: >-
+            Canonical, immutable identifier for the shopper across the whole NovaCart estate. Order calls the
+            same concept `cust_no` and Payment calls it `party_key`.
+          example: cus_8Fq2K1nLbZ
+        email:
+          type: string
+          format: email
+          description: Primary email address, used both as the sign-in credential and for transactional mail.
+          example: mira.velasco@mailbox.example
+        full_name:
+          type: string
+          description: Shopper's full legal name as it should be printed on invoices and shipping labels.
+          example: Mira Velasco
+        phone:
+          type: string
+          description: Contact telephone number used for delivery notifications and fraud call-backs.
+          example: "+1-555-0142"
+        date_of_birth:
+          type: string
+          format: date
+          x-api-galaxy-sensitive: true
+          description: >-
+            Date of birth captured for age-restricted product checks. Treated as sensitive personal data and
+            never returned to storefront surfaces.
+          example: "1991-04-17"
+        loyalty_tier:
+          type: string
+          description: Current loyalty standing, which drives discounting and free-shipping thresholds.
+          enum: [bronze, silver, gold, platinum]
+          example: silver
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp at which the shopper account was opened, in UTC.
+          example: "2031-02-11T09:24:08Z"
+        addresses:
+          type: array
+          description: Delivery and billing addresses the shopper has saved for reuse at checkout.
+          items:
+            $ref: '#/components/schemas/Address'
+    Address:
+      type: object
+      description: >-
+        A saved postal address belonging to a shopper. The same postal shape is echoed by Shipping as its
+        parcel destination, although the two services do not currently share a schema.
+      required: [address_id, line1, city, postal_code, country]
+      properties:
+        address_id:
+          type: string
+          description: Identifier for this saved address within the shopper's address book.
+          example: adr_7Hc4Nm
+        label:
+          type: string
+          description: Friendly label the shopper gave this address, such as Home or Office.
+          example: Home
+        line1:
+          type: string
+          description: First line of the street address, normally house number and street name.
+          example: 88 Larkspur Way
+        line2:
+          type: string
+          description: Optional second address line for apartment, suite or floor detail.
+          example: Apt 3B
+        city:
+          type: string
+          description: City or town the address sits in.
+          example: Fernwood
+        region:
+          type: string
+          description: State, province or region code used for tax and carrier routing.
+          example: OR
+        postal_code:
+          type: string
+          description: Postal or ZIP code used by the carrier to sort the parcel.
+          example: "97401"
+        country:
+          type: string
+          description: ISO 3166-1 alpha-2 country code for the address.
+          example: US
+        is_default:
+          type: boolean
+          description: Whether checkout should pre-select this address for the shopper.
+          example: true
+    CustomerSummary:
+      type: object
+      description: >-
+        Condensed shopper view returned by the public storefront summary route. Despite being a summary it
+        still carries directly identifying contact details alongside the loyalty tier.
+      required: [customer_id, full_name, loyalty_tier]
+      properties:
+        customer_id:
+          type: string
+          description: Canonical shopper identifier the summary describes.
+          example: cus_8Fq2K1nLbZ
+        full_name:
+          type: string
+          description: Shopper's full name, rendered in the storefront greeting widget.
+          example: Mira Velasco
+        email:
+          type: string
+          format: email
+          description: Shopper's primary email address, echoed so the widget can show a masked hint.
+          example: mira.velasco@mailbox.example
+        phone:
+          type: string
+          description: Shopper's contact telephone number, echoed for the click-to-call support button.
+          example: "+1-555-0142"
+        loyalty_tier:
+          type: string
+          description: Loyalty standing used to select which badge artwork the widget renders.
+          enum: [bronze, silver, gold, platinum]
+          example: silver
+    CreateCustomerRequest:
+      type: object
+      description: Payload supplied when opening a new NovaCart shopper account.
+      required: [email, full_name]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address that will become the shopper's sign-in credential; must be unique.
+          example: mira.velasco@mailbox.example
+        full_name:
+          type: string
+          description: Shopper's full legal name, captured once at registration.
+          example: Mira Velasco
+        phone:
+          type: string
+          description: Optional contact telephone number for delivery and fraud notifications.
+          example: "+1-555-0142"
+        date_of_birth:
+          type: string
+          format: date
+          x-api-galaxy-sensitive: true
+          description: Optional date of birth, required only if the shopper buys age-restricted goods.
+          example: "1991-04-17"
+    Error:
+      type: object
+      description: >-
+        Standard Customer domain error envelope. Catalog and Inventory use this same shape, while Cart,
+        Order, Payment and Shipping report failures with an RFC 7807 style problem document instead.
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable error code clients can branch on.
+          example: customer_not_found
+        message:
+          type: string
+          description: Human-readable explanation of what went wrong, safe to log.
+          example: No customer was found for identifier cus_0000000000.
+        details:
+          type: array
+          description: Optional per-field breakdown explaining which inputs were rejected and why.
+          items:
+            type: object
+            description: A single field-level validation complaint.
+            properties:
+              field:
+                type: string
+                description: Name of the offending request field.
+                example: email
+              issue:
+                type: string
+                description: Short token describing the nature of the problem with that field.
+                example: format

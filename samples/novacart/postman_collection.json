@@ -1,0 +1,2759 @@
+{
+  "info": {
+    "_postman_id": "6b1f0c2a-7d34-4a58-9e10-2f4c8b5d9a31",
+    "name": "NovaCart Estate",
+    "description": "Fictional NovaCart e-commerce API estate, generated from the seven OpenAPI 3.0.3 specs in samples/novacart. All hosts, identifiers and data are invented; nothing here resolves to a real system.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "api-galaxy-samples"
+  },
+  "item": [
+    {
+      "name": "NovaCart Customer API",
+      "description": "Authoritative system of record for NovaCart shopper identity, contact details, loyalty standing and saved delivery addresses. Every other NovaCart service treats the `customer_id` issued here as the canonical identifier for a shopper, so this API is the root of the estate's identity graph.",
+      "item": [
+        {
+          "name": "Register a new shopper",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{customerBaseUrl}}/customers",
+              "host": [
+                "{{customerBaseUrl}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            },
+            "description": "Registers a new shopper in the customer master record and returns the newly minted `customer_id` that every downstream NovaCart service will use to refer to this person. The email address must be unique across the estate because it doubles as the sign-in credential.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"mira.velasco@mailbox.example\",\n  \"full_name\": \"Mira Velasco\",\n  \"phone\": \"+1-555-0142\",\n  \"date_of_birth\": \"1991-04-17\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 The shopper was registered and a canonical `customer_id` was issued",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{customerBaseUrl}}/customers",
+                  "host": [
+                    "{{customerBaseUrl}}"
+                  ],
+                  "path": [
+                    "customers"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"customer_id\": \"cus_8Fq2K1nLbZ\",\n  \"email\": \"mira.velasco@mailbox.example\",\n  \"full_name\": \"Mira Velasco\",\n  \"phone\": \"+1-555-0142\",\n  \"date_of_birth\": \"1991-04-17\",\n  \"loyalty_tier\": \"bronze\",\n  \"created_at\": \"2031-02-11T09:24:08Z\",\n  \"addresses\": []\n}"
+            }
+          ]
+        },
+        {
+          "name": "List shoppers page by page",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{customerBaseUrl}}/customers",
+              "host": [
+                "{{customerBaseUrl}}"
+              ],
+              "path": [
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "One-based page number to retrieve; the Customer domain pages with `page` plus `size`.",
+                  "disabled": true
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "description": "Number of records to return per page, capped at 100 to protect the datastore.",
+                  "disabled": true
+                },
+                {
+                  "key": "loyaltyTier",
+                  "value": "bronze",
+                  "description": "Restricts the result set to shoppers sitting in a single loyalty tier.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns a page of shopper summaries for back-office tooling such as the support console. Uses one-based `page` plus `size` paging, which is the Customer domain's house style for pagination.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 A page of shopper records ordered by registration date, newest first",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{customerBaseUrl}}/customers",
+                  "host": [
+                    "{{customerBaseUrl}}"
+                  ],
+                  "path": [
+                    "customers"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "description": "One-based page number to retrieve; the Customer domain pages with `page` plus `size`.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "size",
+                      "value": "20",
+                      "description": "Number of records to return per page, capped at 100 to protect the datastore.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "loyaltyTier",
+                      "value": "bronze",
+                      "description": "Restricts the result set to shoppers sitting in a single loyalty tier.",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"page\": 1,\n  \"size\": 2,\n  \"total\": 4821,\n  \"items\": [\n    {\n      \"customer_id\": \"cus_8Fq2K1nLbZ\",\n      \"email\": \"mira.velasco@mailbox.example\",\n      \"full_name\": \"Mira Velasco\",\n      \"phone\": \"+1-555-0142\",\n      \"date_of_birth\": \"1991-04-17\",\n      \"loyalty_tier\": \"bronze\",\n      \"created_at\": \"2031-02-11T09:24:08Z\",\n      \"addresses\": []\n    },\n    {\n      \"customer_id\": \"cus_3Tz9Wd0pQr\",\n      \"email\": \"oren.kadlec@mailbox.example\",\n      \"full_name\": \"Oren Kadlec\",\n      \"phone\": \"+1-555-0177\",\n      \"date_of_birth\": \"1984-11-02\",\n      \"loyalty_tier\": \"gold\",\n      \"created_at\": \"2030-08-30T16:02:55Z\",\n      \"addresses\": []\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Fetch a single shopper profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{customerBaseUrl}}/customers/:customerId",
+              "host": [
+                "{{customerBaseUrl}}"
+              ],
+              "path": [
+                "customers",
+                ":customerId"
+              ],
+              "variable": [
+                {
+                  "key": "customerId",
+                  "value": "cus_8Fq2K1nLbZ",
+                  "description": "Path parameter customerId for getCustomer."
+                }
+              ]
+            },
+            "description": "Retrieves the full customer master record, including loyalty tier and saved addresses. Checkout calls this operation to confirm the shopper exists and has not been blocked before an order is allowed to proceed.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 The requested shopper profile",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{customerBaseUrl}}/customers/:customerId",
+                  "host": [
+                    "{{customerBaseUrl}}"
+                  ],
+                  "path": [
+                    "customers",
+                    ":customerId"
+                  ],
+                  "variable": [
+                    {
+                      "key": "customerId",
+                      "value": "cus_8Fq2K1nLbZ",
+                      "description": "Path parameter customerId for getCustomer."
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"customer_id\": \"cus_8Fq2K1nLbZ\",\n  \"email\": \"mira.velasco@mailbox.example\",\n  \"full_name\": \"Mira Velasco\",\n  \"phone\": \"+1-555-0142\",\n  \"date_of_birth\": \"1991-04-17\",\n  \"loyalty_tier\": \"silver\",\n  \"created_at\": \"2031-02-11T09:24:08Z\",\n  \"addresses\": [\n    {\n      \"address_id\": \"adr_7Hc4Nm\",\n      \"label\": \"Home\",\n      \"line1\": \"88 Larkspur Way\",\n      \"line2\": \"Apt 3B\",\n      \"city\": \"Fernwood\",\n      \"region\": \"OR\",\n      \"postal_code\": \"97401\",\n      \"country\": \"US\",\n      \"is_default\": true\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Amend a shopper profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{customerBaseUrl}}/customers/:customerId",
+              "host": [
+                "{{customerBaseUrl}}"
+              ],
+              "path": [
+                "customers",
+                ":customerId"
+              ],
+              "variable": [
+                {
+                  "key": "customerId",
+                  "value": "cus_8Fq2K1nLbZ",
+                  "description": "Path parameter customerId for updateCustomer."
+                }
+              ]
+            },
+            "description": "Applies a partial update to an existing shopper. Only the supplied fields are changed, which lets the support console correct a phone number or promote a loyalty tier without resubmitting the whole profile.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+1-555-0199\",\n  \"loyalty_tier\": \"gold\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 The shopper profile after the amendment was applied",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{customerBaseUrl}}/customers/:customerId",
+                  "host": [
+                    "{{customerBaseUrl}}"
+                  ],
+                  "path": [
+                    "customers",
+                    ":customerId"
+                  ],
+                  "variable": [
+                    {
+                      "key": "customerId",
+                      "value": "cus_8Fq2K1nLbZ",
+                      "description": "Path parameter customerId for updateCustomer."
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"customer_id\": \"cus_8Fq2K1nLbZ\",\n  \"email\": \"mira.velasco@mailbox.example\",\n  \"full_name\": \"Mira Velasco\",\n  \"phone\": \"+1-555-0199\",\n  \"date_of_birth\": \"1991-04-17\",\n  \"loyalty_tier\": \"gold\",\n  \"created_at\": \"2031-02-11T09:24:08Z\",\n  \"addresses\": []\n}"
+            }
+          ]
+        },
+        {
+          "name": "List a shopper's saved addresses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{customerBaseUrl}}/customers/:customerId/addresses",
+              "host": [
+                "{{customerBaseUrl}}"
+              ],
+              "path": [
+                "customers",
+                ":customerId",
+                "addresses"
+              ],
+              "variable": [
+                {
+                  "key": "customerId",
+                  "value": "cus_8Fq2K1nLbZ",
+                  "description": "Path parameter customerId for listCustomerAddresses."
+                }
+              ]
+            },
+            "description": "Returns every delivery and billing address the shopper has saved, with the default address flagged. Checkout uses this list to pre-select where a parcel should be sent.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 All addresses on file for the shopper",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{customerBaseUrl}}/customers/:customerId/addresses",
+                  "host": [
+                    "{{customerBaseUrl}}"
+                  ],
+                  "path": [
+                    "customers",
+                    ":customerId",
+                    "addresses"
+                  ],
+                  "variable": [
+                    {
+                      "key": "customerId",
+                      "value": "cus_8Fq2K1nLbZ",
+                      "description": "Path parameter customerId for listCustomerAddresses."
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "[\n  {\n    \"address_id\": \"adr_7Hc4Nm\",\n    \"label\": \"Home\",\n    \"line1\": \"88 Larkspur Way\",\n    \"line2\": \"Apt 3B\",\n    \"city\": \"Fernwood\",\n    \"region\": \"OR\",\n    \"postal_code\": \"97401\",\n    \"country\": \"US\",\n    \"is_default\": true\n  },\n  {\n    \"address_id\": \"adr_2Bq9Rt\",\n    \"label\": \"Office\",\n    \"line1\": \"410 Quarry Street\",\n    \"line2\": \"Floor 7\",\n    \"city\": \"Fernwood\",\n    \"region\": \"OR\",\n    \"postal_code\": \"97403\",\n    \"country\": \"US\",\n    \"is_default\": false\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Public shopper summary for storefront widgets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{customerBaseUrl}}/public/customers/:customerId/summary",
+              "host": [
+                "{{customerBaseUrl}}"
+              ],
+              "path": [
+                "public",
+                "customers",
+                ":customerId",
+                "summary"
+              ],
+              "variable": [
+                {
+                  "key": "customerId",
+                  "value": "cus_8Fq2K1nLbZ",
+                  "description": "Path parameter customerId for getPublicCustomerSummary."
+                }
+              ]
+            },
+            "description": "Returns a condensed shopper summary used by the storefront greeting widget and the loyalty badge. This route deliberately carries no authentication so the widget can render before sign-in, yet the payload still includes the shopper's email address, telephone number and loyalty tier.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 The condensed shopper summary",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{customerBaseUrl}}/public/customers/:customerId/summary",
+                  "host": [
+                    "{{customerBaseUrl}}"
+                  ],
+                  "path": [
+                    "public",
+                    "customers",
+                    ":customerId",
+                    "summary"
+                  ],
+                  "variable": [
+                    {
+                      "key": "customerId",
+                      "value": "cus_8Fq2K1nLbZ",
+                      "description": "Path parameter customerId for getPublicCustomerSummary."
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"customer_id\": \"cus_8Fq2K1nLbZ\",\n  \"full_name\": \"Mira Velasco\",\n  \"email\": \"mira.velasco@mailbox.example\",\n  \"phone\": \"+1-555-0142\",\n  \"loyalty_tier\": \"silver\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "NovaCart Catalog API",
+      "description": "Read-optimised product catalogue and search surface for the NovaCart storefront. It serves merchandised product records, the category tree and the free-text search index, and is the only NovaCart service that authenticates with a static partner API key rather than a shopper bearer token.",
+      "item": [
+        {
+          "name": "Browse published products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{catalogBaseUrl}}/products",
+              "host": [
+                "{{catalogBaseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "24",
+                  "description": "Maximum number of records to return in this window; the Catalog domain pages by offset.",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": "Zero-based index of the first record to return in this window.",
+                  "disabled": true
+                },
+                {
+                  "key": "categoryId",
+                  "value": "",
+                  "description": "Restricts results to products merchandised under a single category node.",
+                  "disabled": true
+                },
+                {
+                  "key": "brand",
+                  "value": "",
+                  "description": "Restricts results to a single brand name as shown on the product record.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns published products for storefront browse pages, optionally narrowed to a single category or brand. This route pages with `limit` and `offset`, which differs from the `page` and `size` style used by the Customer, Order and Shipping domains.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-API-Key",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{apiKey}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 A window of published products selected by limit and offset",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{catalogBaseUrl}}/products",
+                  "host": [
+                    "{{catalogBaseUrl}}"
+                  ],
+                  "path": [
+                    "products"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "24",
+                      "description": "Maximum number of records to return in this window; the Catalog domain pages by offset.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0",
+                      "description": "Zero-based index of the first record to return in this window.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "categoryId",
+                      "value": "",
+                      "description": "Restricts results to products merchandised under a single category node.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "brand",
+                      "value": "",
+                      "description": "Restricts results to a single brand name as shown on the product record.",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"limit\": 2,\n  \"offset\": 0,\n  \"total\": 1864,\n  \"items\": [\n    {\n      \"product_id\": \"prd_L4m2Xc\",\n      \"sku\": \"NC-KTL-0099\",\n      \"name\": \"Aurora Pour-Over Kettle\",\n      \"description\": \"A 1.0 litre gooseneck kettle with a variable-temperature base.\",\n      \"brand\": \"Aurora Home\",\n      \"category_id\": \"cat_kitchen_brewing\",\n      \"price\": 89.0,\n      \"currency\": \"USD\",\n      \"attributes\": {\n        \"colour\": \"matte black\",\n        \"capacity_litres\": \"1.0\"\n      }\n    },\n    {\n      \"product_id\": \"prd_P8r0Qd\",\n      \"sku\": \"NC-MUG-0412\",\n      \"name\": \"Kilnwork Stoneware Mug\",\n      \"description\": \"A 350 ml reactive-glaze stoneware mug fired in small batches.\",\n      \"brand\": \"Kilnwork\",\n      \"category_id\": \"cat_kitchen_drinkware\",\n      \"price\": 24.5,\n      \"currency\": \"USD\",\n      \"attributes\": {\n        \"colour\": \"ember\",\n        \"capacity_ml\": \"350\"\n      }\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Fetch one product record",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{catalogBaseUrl}}/products/:productId",
+              "host": [
+                "{{catalogBaseUrl}}"
+              ],
+              "path": [
+                "products",
+                ":productId"
+              ],
+              "variable": [
+                {
+                  "key": "productId",
+                  "value": "prd_L4m2Xc",
+                  "description": "Path parameter productId for getProduct."
+                }
+              ]
+            },
+            "description": "Retrieves the complete merchandised record for a single product, including its selling price and the structured attribute bag rendered on the product detail page. Cart calls this before adding a line so the unit price it stores matches the published price.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-API-Key",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{apiKey}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 The requested product record",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{catalogBaseUrl}}/products/:productId",
+                  "host": [
+                    "{{catalogBaseUrl}}"
+                  ],
+                  "path": [
+                    "products",
+                    ":productId"
+                  ],
+                  "variable": [
+                    {
+                      "key": "productId",
+                      "value": "prd_L4m2Xc",
+                      "description": "Path parameter productId for getProduct."
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"product_id\": \"prd_L4m2Xc\",\n  \"sku\": \"NC-KTL-0099\",\n  \"name\": \"Aurora Pour-Over Kettle\",\n  \"description\": \"A 1.0 litre gooseneck kettle with a variable-temperature base and a hold timer.\",\n  \"brand\": \"Aurora Home\",\n  \"category_id\": \"cat_kitchen_brewing\",\n  \"price\": 89.0,\n  \"currency\": \"USD\",\n  \"attributes\": {\n    \"colour\": \"matte black\",\n    \"capacity_litres\": \"1.0\",\n    \"warranty_months\": \"24\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Search the catalogue by keyword",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{catalogBaseUrl}}/search?q=pour%20over%20kettle",
+              "host": [
+                "{{catalogBaseUrl}}"
+              ],
+              "path": [
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "pour over kettle",
+                  "description": "Free-text query typed by the shopper, for example \"pour over kettle\".",
+                  "disabled": false
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "description": "Opaque continuation token returned as `next_cursor` by the previous search call. Omit it to start from the most relevant hit.",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Number of hits to return in this cursor page, capped at 50 by the search tier.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Runs a relevance-ranked keyword search across product names, descriptions and brands. Results are paged with an opaque `cursor` token rather than page numbers or offsets, giving the estate a third distinct pagination style.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-API-Key",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{apiKey}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 A relevance-ranked page of search hits plus the cursor for the next page",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{catalogBaseUrl}}/search?q=pour%20over%20kettle",
+                  "host": [
+                    "{{catalogBaseUrl}}"
+                  ],
+                  "path": [
+                    "search"
+                  ],
+                  "query": [
+                    {
+                      "key": "q",
+                      "value": "pour over kettle",
+                      "description": "Free-text query typed by the shopper, for example \"pour over kettle\".",
+                      "disabled": false
+                    },
+                    {
+                      "key": "cursor",
+                      "value": "",
+                      "description": "Opaque continuation token returned as `next_cursor` by the previous search call. Omit it to start from the most relevant hit.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "20",
+                      "description": "Number of hits to return in this cursor page, capped at 50 by the search tier.",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"query\": \"pour over kettle\",\n  \"page_size\": 2,\n  \"next_cursor\": \"eyJvIjoyfQ\",\n  \"hits\": [\n    {\n      \"product_id\": \"prd_L4m2Xc\",\n      \"sku\": \"NC-KTL-0099\",\n      \"name\": \"Aurora Pour-Over Kettle\",\n      \"description\": \"A 1.0 litre gooseneck kettle with a variable-temperature base.\",\n      \"brand\": \"Aurora Home\",\n      \"category_id\": \"cat_kitchen_brewing\",\n      \"price\": 89.0,\n      \"currency\": \"USD\",\n      \"attributes\": {\n        \"colour\": \"matte black\"\n      }\n    },\n    {\n      \"product_id\": \"prd_W2v7Hn\",\n      \"sku\": \"NC-DRP-0031\",\n      \"name\": \"Slowline Glass Dripper\",\n      \"description\": \"A borosilicate cone dripper sized for two cups.\",\n      \"brand\": \"Slowline\",\n      \"category_id\": \"cat_kitchen_brewing\",\n      \"price\": 32.0,\n      \"currency\": \"USD\",\n      \"attributes\": {\n        \"colour\": \"clear\"\n      }\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "List merchandising categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{catalogBaseUrl}}/categories",
+              "host": [
+                "{{catalogBaseUrl}}"
+              ],
+              "path": [
+                "categories"
+              ],
+              "query": [
+                {
+                  "key": "parentId",
+                  "value": "",
+                  "description": "Returns only the direct children of the given category node.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns the merchandising category tree used to build storefront navigation. Each node reports its parent so a client can rebuild the hierarchy in a single pass.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-API-Key",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{apiKey}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 The category nodes matching the request",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{catalogBaseUrl}}/categories",
+                  "host": [
+                    "{{catalogBaseUrl}}"
+                  ],
+                  "path": [
+                    "categories"
+                  ],
+                  "query": [
+                    {
+                      "key": "parentId",
+                      "value": "",
+                      "description": "Returns only the direct children of the given category node.",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "[\n  {\n    \"category_id\": \"cat_kitchen\",\n    \"name\": \"Kitchen\",\n    \"parent_id\": null,\n    \"description\": \"Cookware, brewing gear and everyday drinkware.\",\n    \"product_count\": 412\n  },\n  {\n    \"category_id\": \"cat_kitchen_brewing\",\n    \"name\": \"Coffee and Tea Brewing\",\n    \"parent_id\": \"cat_kitchen\",\n    \"description\": \"Kettles, drippers, grinders and brewing accessories.\",\n    \"product_count\": 96\n  }\n]"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "NovaCart Cart API",
+      "description": "Holds the shopper's in-progress basket between browsing and ordering. A cart is a short-lived, mutable document keyed by `cart_id` and owned by a `customer_id`; it keeps line items, a running subtotal and the handover point into the Order domain.",
+      "item": [
+        {
+          "name": "Open a new basket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{cartBaseUrl}}/carts",
+              "host": [
+                "{{cartBaseUrl}}"
+              ],
+              "path": [
+                "carts"
+              ]
+            },
+            "description": "Opens an empty basket for a shopper and returns the `cart_id` the storefront will carry for the rest of the session. The supplied `customer_id` is the same canonical shopper identifier issued by the Customer API.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_id\": \"cus_8Fq2K1nLbZ\",\n  \"currency\": \"USD\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 An empty basket was opened for the shopper",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{cartBaseUrl}}/carts",
+                  "host": [
+                    "{{cartBaseUrl}}"
+                  ],
+                  "path": [
+                    "carts"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"cart_id\": \"crt_5Nd8Yx\",\n  \"customer_id\": \"cus_8Fq2K1nLbZ\",\n  \"items\": [],\n  \"subtotal\": 0.0,\n  \"currency\": \"USD\",\n  \"updated_at\": \"2031-03-02T14:11:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Read a basket",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{cartBaseUrl}}/carts/:cartId",
+              "host": [
+                "{{cartBaseUrl}}"
+              ],
+              "path": [
+                "carts",
+                ":cartId"
+              ],
+              "variable": [
+                {
+                  "key": "cartId",
+                  "value": "crt_5Nd8Yx",
+                  "description": "Path parameter cartId for getCart."
+                }
+              ]
+            },
+            "description": "Returns the current state of a basket, including every line item and the recalculated subtotal. Order placement reads the basket through this operation to confirm its contents and price before an order is written.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 The current basket document",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{cartBaseUrl}}/carts/:cartId",
+                  "host": [
+                    "{{cartBaseUrl}}"
+                  ],
+                  "path": [
+                    "carts",
+                    ":cartId"
+                  ],
+                  "variable": [
+                    {
+                      "key": "cartId",
+                      "value": "crt_5Nd8Yx",
+                      "description": "Path parameter cartId for getCart."
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"cart_id\": \"crt_5Nd8Yx\",\n  \"customer_id\": \"cus_8Fq2K1nLbZ\",\n  \"items\": [\n    {\n      \"item_id\": \"cli_01\",\n      \"product_id\": \"prd_L4m2Xc\",\n      \"sku\": \"NC-KTL-0099\",\n      \"quantity\": 1,\n      \"unit_price\": 89.0\n    },\n    {\n      \"item_id\": \"cli_02\",\n      \"product_id\": \"prd_P8r0Qd\",\n      \"sku\": \"NC-MUG-0412\",\n      \"quantity\": 2,\n      \"unit_price\": 24.5\n    }\n  ],\n  \"subtotal\": 138.0,\n  \"currency\": \"USD\",\n  \"updated_at\": \"2031-03-02T14:18:42Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Add a line to the basket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{cartBaseUrl}}/carts/:cartId/items",
+              "host": [
+                "{{cartBaseUrl}}"
+              ],
+              "path": [
+                "carts",
+                ":cartId",
+                "items"
+              ],
+              "variable": [
+                {
+                  "key": "cartId",
+                  "value": "crt_5Nd8Yx",
+                  "description": "Path parameter cartId for addCartItem."
+                }
+              ]
+            },
+            "description": "Adds a product to the basket or increases the quantity if the same SKU is already present. The unit price is snapshotted from the catalogue at the moment of the call so later price changes do not silently alter an open basket.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"prd_L4m2Xc\",\n  \"sku\": \"NC-KTL-0099\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 The basket after the line was added, with the subtotal recalculated",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{cartBaseUrl}}/carts/:cartId/items",
+                  "host": [
+                    "{{cartBaseUrl}}"
+                  ],
+                  "path": [
+                    "carts",
+                    ":cartId",
+                    "items"
+                  ],
+                  "variable": [
+                    {
+                      "key": "cartId",
+                      "value": "crt_5Nd8Yx",
+                      "description": "Path parameter cartId for addCartItem."
+                    }
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"cart_id\": \"crt_5Nd8Yx\",\n  \"customer_id\": \"cus_8Fq2K1nLbZ\",\n  \"items\": [\n    {\n      \"item_id\": \"cli_01\",\n      \"product_id\": \"prd_L4m2Xc\",\n      \"sku\": \"NC-KTL-0099\",\n      \"quantity\": 1,\n      \"unit_price\": 89.0\n    }\n  ],\n  \"subtotal\": 89.0,\n  \"currency\": \"USD\",\n  \"updated_at\": \"2031-03-02T14:15:09Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Remove a line from the basket",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{cartBaseUrl}}/carts/:cartId/items/:itemId",
+              "host": [
+                "{{cartBaseUrl}}"
+              ],
+              "path": [
+                "carts",
+                ":cartId",
+                "items",
+                ":itemId"
+              ],
+              "variable": [
+                {
+                  "key": "cartId",
+                  "value": "crt_5Nd8Yx",
+                  "description": "Path parameter cartId for removeCartItem."
+                },
+                {
+                  "key": "itemId",
+                  "value": "cli_01",
+                  "description": "Path parameter itemId for removeCartItem."
+                }
+              ]
+            },
+            "description": "Removes a single line from the basket entirely and recalculates the subtotal. Reducing a quantity rather than deleting the line is done by removing and re-adding with the smaller quantity.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Start checkout for a basket (deprecated)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{cartBaseUrl}}/carts/:cartId/checkout",
+              "host": [
+                "{{cartBaseUrl}}"
+              ],
+              "path": [
+                "carts",
+                ":cartId",
+                "checkout"
+              ],
+              "variable": [
+                {
+                  "key": "cartId",
+                  "value": "crt_5Nd8Yx",
+                  "description": "Path parameter cartId for checkoutCart."
+                }
+              ]
+            },
+            "description": "Converts a basket into a placed order by calling the Order domain on the caller's behalf, then seals the basket so it can no longer be edited. This operation is marked deprecated in favour of calling Order directly, yet it remains the route the storefront and the published integration guide still use, so it is very much a live part of the checkout journey.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_method_token\": \"pmt_tok_9Zx4Ke\",\n  \"shipping_address_id\": \"adr_7Hc4Nm\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 The basket was converted and the identifiers of the resulting order are returned",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{cartBaseUrl}}/carts/:cartId/checkout",
+                  "host": [
+                    "{{cartBaseUrl}}"
+                  ],
+                  "path": [
+                    "carts",
+                    ":cartId",
+                    "checkout"
+                  ],
+                  "variable": [
+                    {
+                      "key": "cartId",
+                      "value": "crt_5Nd8Yx",
+                      "description": "Path parameter cartId for checkoutCart."
+                    }
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"cart_id\": \"crt_5Nd8Yx\",\n  \"order_id\": \"ord_7Kp3Vb\",\n  \"status\": \"pending_payment\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "NovaCart Order API",
+      "description": "System of record for placed orders. An order is the immutable commercial contract created when a basket is accepted: it freezes the lines, the price and the delivery address, and it is the object that Payment, Inventory and Shipping all orbit around for the rest of the fulfilment lifecycle.",
+      "item": [
+        {
+          "name": "Place an order from a basket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "description": "Accepts a basket as an order. The operation validates the shopper, re-reads the basket to freeze its lines and total, reserves stock for every SKU and authorizes the payment instrument before the order is written to the order book. If any of those four checks fails the order is rejected and nothing is persisted.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cart_id\": \"crt_5Nd8Yx\",\n  \"cust_no\": \"cus_8Fq2K1nLbZ\",\n  \"payment_method_token\": \"pmt_tok_9Zx4Ke\",\n  \"shipping_address_id\": \"adr_7Hc4Nm\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 The order was accepted and written to the order book",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{orderBaseUrl}}/orders",
+                  "host": [
+                    "{{orderBaseUrl}}"
+                  ],
+                  "path": [
+                    "orders"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"order_id\": \"ord_7Kp3Vb\",\n  \"cust_no\": \"cus_8Fq2K1nLbZ\",\n  \"cart_id\": \"crt_5Nd8Yx\",\n  \"status\": \"pending_payment\",\n  \"total_amount\": 138.0,\n  \"currency\": \"USD\",\n  \"placed_at\": \"2031-03-02T14:19:55Z\",\n  \"lines\": [\n    {\n      \"line_id\": \"oln_01\",\n      \"product_id\": \"prd_L4m2Xc\",\n      \"sku\": \"NC-KTL-0099\",\n      \"quantity\": 1,\n      \"unit_price\": 89.0,\n      \"line_total\": 89.0\n    },\n    {\n      \"line_id\": \"oln_02\",\n      \"product_id\": \"prd_P8r0Qd\",\n      \"sku\": \"NC-MUG-0412\",\n      \"quantity\": 2,\n      \"unit_price\": 24.5,\n      \"line_total\": 49.0\n    }\n  ],\n  \"shipping_address\": {\n    \"line1\": \"88 Larkspur Way\",\n    \"line2\": \"Apt 3B\",\n    \"city\": \"Fernwood\",\n    \"region\": \"OR\",\n    \"postal_code\": \"97401\",\n    \"country\": \"US\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "List orders page by page",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "One-based page number to retrieve; the Order domain pages with `page` plus `size`.",
+                  "disabled": true
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "description": "Number of orders to return per page, capped at 100.",
+                  "disabled": true
+                },
+                {
+                  "key": "custNo",
+                  "value": "",
+                  "description": "Restricts the result set to orders belonging to a single shopper identifier.",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "pending_payment",
+                  "description": "Restricts the result set to orders sitting in one lifecycle state.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns a page of orders for the account portal and the support console, optionally narrowed to one shopper or one lifecycle status. Pages with one-based `page` plus `size`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 A page of orders sorted by placement time, newest first",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{orderBaseUrl}}/orders",
+                  "host": [
+                    "{{orderBaseUrl}}"
+                  ],
+                  "path": [
+                    "orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "description": "One-based page number to retrieve; the Order domain pages with `page` plus `size`.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "size",
+                      "value": "20",
+                      "description": "Number of orders to return per page, capped at 100.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "custNo",
+                      "value": "",
+                      "description": "Restricts the result set to orders belonging to a single shopper identifier.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "pending_payment",
+                      "description": "Restricts the result set to orders sitting in one lifecycle state.",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"page\": 1,\n  \"size\": 1,\n  \"total\": 37,\n  \"items\": [\n    {\n      \"order_id\": \"ord_7Kp3Vb\",\n      \"cust_no\": \"cus_8Fq2K1nLbZ\",\n      \"cart_id\": \"crt_5Nd8Yx\",\n      \"status\": \"paid\",\n      \"total_amount\": 138.0,\n      \"currency\": \"USD\",\n      \"placed_at\": \"2031-03-02T14:19:55Z\",\n      \"lines\": [\n        {\n          \"line_id\": \"oln_01\",\n          \"product_id\": \"prd_L4m2Xc\",\n          \"sku\": \"NC-KTL-0099\",\n          \"quantity\": 1,\n          \"unit_price\": 89.0,\n          \"line_total\": 89.0\n        }\n      ],\n      \"shipping_address\": {\n        \"line1\": \"88 Larkspur Way\",\n        \"city\": \"Fernwood\",\n        \"region\": \"OR\",\n        \"postal_code\": \"97401\",\n        \"country\": \"US\"\n      }\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Fetch a single order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders/:orderId",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders",
+                ":orderId"
+              ],
+              "variable": [
+                {
+                  "key": "orderId",
+                  "value": "ord_7Kp3Vb",
+                  "description": "Path parameter orderId for getOrder."
+                }
+              ]
+            },
+            "description": "Retrieves the full order record including frozen lines, total and delivery address. Payment capture, inventory commitment and shipment creation all read the order through this operation to confirm what they are acting on.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 The requested order record",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{orderBaseUrl}}/orders/:orderId",
+                  "host": [
+                    "{{orderBaseUrl}}"
+                  ],
+                  "path": [
+                    "orders",
+                    ":orderId"
+                  ],
+                  "variable": [
+                    {
+                      "key": "orderId",
+                      "value": "ord_7Kp3Vb",
+                      "description": "Path parameter orderId for getOrder."
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"order_id\": \"ord_7Kp3Vb\",\n  \"cust_no\": \"cus_8Fq2K1nLbZ\",\n  \"cart_id\": \"crt_5Nd8Yx\",\n  \"status\": \"paid\",\n  \"total_amount\": 138.0,\n  \"currency\": \"USD\",\n  \"placed_at\": \"2031-03-02T14:19:55Z\",\n  \"lines\": [\n    {\n      \"line_id\": \"oln_01\",\n      \"product_id\": \"prd_L4m2Xc\",\n      \"sku\": \"NC-KTL-0099\",\n      \"quantity\": 1,\n      \"unit_price\": 89.0,\n      \"line_total\": 89.0\n    },\n    {\n      \"line_id\": \"oln_02\",\n      \"product_id\": \"prd_P8r0Qd\",\n      \"sku\": \"NC-MUG-0412\",\n      \"quantity\": 2,\n      \"unit_price\": 24.5,\n      \"line_total\": 49.0\n    }\n  ],\n  \"shipping_address\": {\n    \"line1\": \"88 Larkspur Way\",\n    \"line2\": \"Apt 3B\",\n    \"city\": \"Fernwood\",\n    \"region\": \"OR\",\n    \"postal_code\": \"97401\",\n    \"country\": \"US\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Cancel an order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders/:orderId/cancel",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders",
+                ":orderId",
+                "cancel"
+              ],
+              "variable": [
+                {
+                  "key": "orderId",
+                  "value": "ord_7Kp3Vb",
+                  "description": "Path parameter orderId for cancelOrder."
+                }
+              ]
+            },
+            "description": "Cancels an order that has not yet shipped, moving it to the cancelled state. Releasing the stock hold and refunding any captured payment are handled asynchronously by the fulfilment choreography once the cancellation is recorded.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason_code\": \"customer_request\",\n  \"note\": \"Shopper changed their mind before dispatch.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 The order after it was moved into the cancelled state",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{orderBaseUrl}}/orders/:orderId/cancel",
+                  "host": [
+                    "{{orderBaseUrl}}"
+                  ],
+                  "path": [
+                    "orders",
+                    ":orderId",
+                    "cancel"
+                  ],
+                  "variable": [
+                    {
+                      "key": "orderId",
+                      "value": "ord_7Kp3Vb",
+                      "description": "Path parameter orderId for cancelOrder."
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"order_id\": \"ord_7Kp3Vb\",\n  \"cust_no\": \"cus_8Fq2K1nLbZ\",\n  \"cart_id\": \"crt_5Nd8Yx\",\n  \"status\": \"cancelled\",\n  \"total_amount\": 138.0,\n  \"currency\": \"USD\",\n  \"placed_at\": \"2031-03-02T14:19:55Z\",\n  \"lines\": [],\n  \"shipping_address\": {\n    \"line1\": \"88 Larkspur Way\",\n    \"city\": \"Fernwood\",\n    \"region\": \"OR\",\n    \"postal_code\": \"97401\",\n    \"country\": \"US\"\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "NovaCart Payment API",
+      "description": "Money movement for NovaCart orders. It authorizes a payment instrument at order placement, captures the funds once fulfilment commits, and refunds all or part of an order afterwards. Monetary values are modelled as decimal strings here to avoid binary floating-point drift in the ledger.",
+      "item": [
+        {
+          "name": "Authorize a payment for an order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{paymentBaseUrl}}/payments/authorize",
+              "host": [
+                "{{paymentBaseUrl}}"
+              ],
+              "path": [
+                "payments",
+                "authorize"
+              ]
+            },
+            "description": "Places a hold on the shopper's payment instrument for the order total without moving any money yet. Order placement calls this as its final gate, so a declined authorization means the order is never written.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"ord_7Kp3Vb\",\n  \"party_key\": \"cus_8Fq2K1nLbZ\",\n  \"amount\": \"138.00\",\n  \"currency\": \"USD\",\n  \"payment_method_token\": \"pmt_tok_9Zx4Ke\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 The instrument was authorized and a hold is now in place for the stated amount",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentBaseUrl}}/payments/authorize",
+                  "host": [
+                    "{{paymentBaseUrl}}"
+                  ],
+                  "path": [
+                    "payments",
+                    "authorize"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"payment_id\": \"pay_2Jd6Lw\",\n  \"order_id\": \"ord_7Kp3Vb\",\n  \"party_key\": \"cus_8Fq2K1nLbZ\",\n  \"amount\": \"138.00\",\n  \"currency\": \"USD\",\n  \"status\": \"authorized\",\n  \"card_last4\": \"4417\",\n  \"authorized_at\": \"2031-03-02T14:19:53Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Capture an authorized payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{paymentBaseUrl}}/payments/:paymentId/capture",
+              "host": [
+                "{{paymentBaseUrl}}"
+              ],
+              "path": [
+                "payments",
+                ":paymentId",
+                "capture"
+              ],
+              "variable": [
+                {
+                  "key": "paymentId",
+                  "value": "pay_2Jd6Lw",
+                  "description": "Path parameter paymentId for capturePayment."
+                }
+              ]
+            },
+            "description": "Converts an existing authorization hold into a settled charge, normally once Inventory has committed the stock. The operation re-reads the order first so it never captures more than the order total or captures against a cancelled order.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": \"138.00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 The payment after the funds were captured",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentBaseUrl}}/payments/:paymentId/capture",
+                  "host": [
+                    "{{paymentBaseUrl}}"
+                  ],
+                  "path": [
+                    "payments",
+                    ":paymentId",
+                    "capture"
+                  ],
+                  "variable": [
+                    {
+                      "key": "paymentId",
+                      "value": "pay_2Jd6Lw",
+                      "description": "Path parameter paymentId for capturePayment."
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"payment_id\": \"pay_2Jd6Lw\",\n  \"order_id\": \"ord_7Kp3Vb\",\n  \"party_key\": \"cus_8Fq2K1nLbZ\",\n  \"amount\": \"138.00\",\n  \"currency\": \"USD\",\n  \"status\": \"captured\",\n  \"card_last4\": \"4417\",\n  \"authorized_at\": \"2031-03-02T14:19:53Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Refund a captured payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{paymentBaseUrl}}/payments/:paymentId/refund",
+              "host": [
+                "{{paymentBaseUrl}}"
+              ],
+              "path": [
+                "payments",
+                ":paymentId",
+                "refund"
+              ],
+              "variable": [
+                {
+                  "key": "paymentId",
+                  "value": "pay_2Jd6Lw",
+                  "description": "Path parameter paymentId for refundPayment."
+                }
+              ]
+            },
+            "description": "Returns captured funds to the shopper's instrument, in full or in part. Partial refunds may be issued repeatedly as long as the running total stays within the amount originally captured.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": \"24.50\",\n  \"reason\": \"item_returned\",\n  \"note\": \"Shopper returned one stoneware mug.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 The payment after the refund was accepted by the processor",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentBaseUrl}}/payments/:paymentId/refund",
+                  "host": [
+                    "{{paymentBaseUrl}}"
+                  ],
+                  "path": [
+                    "payments",
+                    ":paymentId",
+                    "refund"
+                  ],
+                  "variable": [
+                    {
+                      "key": "paymentId",
+                      "value": "pay_2Jd6Lw",
+                      "description": "Path parameter paymentId for refundPayment."
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"payment_id\": \"pay_2Jd6Lw\",\n  \"order_id\": \"ord_7Kp3Vb\",\n  \"party_key\": \"cus_8Fq2K1nLbZ\",\n  \"amount\": \"113.50\",\n  \"currency\": \"USD\",\n  \"status\": \"partially_refunded\",\n  \"card_last4\": \"4417\",\n  \"authorized_at\": \"2031-03-02T14:19:53Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Fetch a payment record",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{paymentBaseUrl}}/payments/:paymentId",
+              "host": [
+                "{{paymentBaseUrl}}"
+              ],
+              "path": [
+                "payments",
+                ":paymentId"
+              ],
+              "variable": [
+                {
+                  "key": "paymentId",
+                  "value": "pay_2Jd6Lw",
+                  "description": "Path parameter paymentId for getPayment."
+                }
+              ]
+            },
+            "description": "Retrieves the current state of a payment, including its lifecycle status, the masked card digits and the timestamp of the original authorization. Used by the account portal and by finance reconciliation.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 The requested payment record",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{paymentBaseUrl}}/payments/:paymentId",
+                  "host": [
+                    "{{paymentBaseUrl}}"
+                  ],
+                  "path": [
+                    "payments",
+                    ":paymentId"
+                  ],
+                  "variable": [
+                    {
+                      "key": "paymentId",
+                      "value": "pay_2Jd6Lw",
+                      "description": "Path parameter paymentId for getPayment."
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"payment_id\": \"pay_2Jd6Lw\",\n  \"order_id\": \"ord_7Kp3Vb\",\n  \"party_key\": \"cus_8Fq2K1nLbZ\",\n  \"amount\": \"138.00\",\n  \"currency\": \"USD\",\n  \"status\": \"captured\",\n  \"card_last4\": \"4417\",\n  \"authorized_at\": \"2031-03-02T14:19:53Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "NovaCart Inventory API",
+      "description": "Warehouse stock positions and the soft-reservation ledger that protects them. Availability is tracked per SKU per warehouse; orders take a short-lived reservation at placement and commit it once payment is safe, which is what stops two shoppers buying the last unit of the same article.",
+      "item": [
+        {
+          "name": "Read stock for a SKU",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{inventoryBaseUrl}}/inventory/:sku",
+              "host": [
+                "{{inventoryBaseUrl}}"
+              ],
+              "path": [
+                "inventory",
+                ":sku"
+              ],
+              "variable": [
+                {
+                  "key": "sku",
+                  "value": "NC-KTL-0099",
+                  "description": "Path parameter sku for getInventory."
+                }
+              ],
+              "query": [
+                {
+                  "key": "warehouseId",
+                  "value": "",
+                  "description": "Restricts the answer to a single warehouse instead of the whole network.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns the current stock position for a stock-keeping unit, broken down by warehouse into units that are freely available and units already reserved against open orders. The storefront uses this to show the in-stock badge.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 Stock positions for the SKU, one entry per warehouse holding it",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{inventoryBaseUrl}}/inventory/:sku",
+                  "host": [
+                    "{{inventoryBaseUrl}}"
+                  ],
+                  "path": [
+                    "inventory",
+                    ":sku"
+                  ],
+                  "variable": [
+                    {
+                      "key": "sku",
+                      "value": "NC-KTL-0099",
+                      "description": "Path parameter sku for getInventory."
+                    }
+                  ],
+                  "query": [
+                    {
+                      "key": "warehouseId",
+                      "value": "",
+                      "description": "Restricts the answer to a single warehouse instead of the whole network.",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "[\n  {\n    \"sku\": \"NC-KTL-0099\",\n    \"warehouse_id\": \"whs_fernwood\",\n    \"available\": 42,\n    \"reserved\": 6\n  },\n  {\n    \"sku\": \"NC-KTL-0099\",\n    \"warehouse_id\": \"whs_brightmoor\",\n    \"available\": 11,\n    \"reserved\": 0\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Reserve stock for an order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{inventoryBaseUrl}}/reservations",
+              "host": [
+                "{{inventoryBaseUrl}}"
+              ],
+              "path": [
+                "reservations"
+              ]
+            },
+            "description": "Places a short-lived soft hold on stock for every SKU on an order so the units cannot be sold twice while checkout completes. Reservations expire automatically if they are not committed before their `expires_at` moment.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"ord_7Kp3Vb\",\n  \"warehouse_id\": \"whs_fernwood\",\n  \"lines\": [\n    {\n      \"sku\": \"NC-KTL-0099\",\n      \"quantity\": 1\n    },\n    {\n      \"sku\": \"NC-MUG-0412\",\n      \"quantity\": 2\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Soft holds were placed and the resulting reservations are returned",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{inventoryBaseUrl}}/reservations",
+                  "host": [
+                    "{{inventoryBaseUrl}}"
+                  ],
+                  "path": [
+                    "reservations"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "[\n  {\n    \"reservation_id\": \"rsv_9Qb1Fh\",\n    \"order_id\": \"ord_7Kp3Vb\",\n    \"sku\": \"NC-KTL-0099\",\n    \"quantity\": 1,\n    \"status\": \"held\",\n    \"expires_at\": \"2031-03-02T14:49:55Z\"\n  },\n  {\n    \"reservation_id\": \"rsv_4Ln7Dm\",\n    \"order_id\": \"ord_7Kp3Vb\",\n    \"sku\": \"NC-MUG-0412\",\n    \"quantity\": 2,\n    \"status\": \"held\",\n    \"expires_at\": \"2031-03-02T14:49:55Z\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "List reservations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{inventoryBaseUrl}}/reservations",
+              "host": [
+                "{{inventoryBaseUrl}}"
+              ],
+              "path": [
+                "reservations"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "description": "Maximum number of reservations to return in this window; Inventory pages by offset.",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": "Zero-based index of the first reservation to return in this window.",
+                  "disabled": true
+                },
+                {
+                  "key": "orderId",
+                  "value": "",
+                  "description": "Restricts the result set to reservations taken for a single order.",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "held",
+                  "description": "Restricts the result set to reservations in one lifecycle state.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns reservations for operational dashboards, optionally narrowed to one order or one status. Pages with `limit` and `offset` in the same offset style the Catalog domain uses.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 A window of reservation records selected by limit and offset",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{inventoryBaseUrl}}/reservations",
+                  "host": [
+                    "{{inventoryBaseUrl}}"
+                  ],
+                  "path": [
+                    "reservations"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "50",
+                      "description": "Maximum number of reservations to return in this window; Inventory pages by offset.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0",
+                      "description": "Zero-based index of the first reservation to return in this window.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "orderId",
+                      "value": "",
+                      "description": "Restricts the result set to reservations taken for a single order.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "held",
+                      "description": "Restricts the result set to reservations in one lifecycle state.",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"limit\": 2,\n  \"offset\": 0,\n  \"total\": 118,\n  \"items\": [\n    {\n      \"reservation_id\": \"rsv_9Qb1Fh\",\n      \"order_id\": \"ord_7Kp3Vb\",\n      \"sku\": \"NC-KTL-0099\",\n      \"quantity\": 1,\n      \"status\": \"committed\",\n      \"expires_at\": \"2031-03-02T14:49:55Z\"\n    },\n    {\n      \"reservation_id\": \"rsv_4Ln7Dm\",\n      \"order_id\": \"ord_7Kp3Vb\",\n      \"sku\": \"NC-MUG-0412\",\n      \"quantity\": 2,\n      \"status\": \"committed\",\n      \"expires_at\": \"2031-03-02T14:49:55Z\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Release a reservation",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{inventoryBaseUrl}}/reservations/:reservationId",
+              "host": [
+                "{{inventoryBaseUrl}}"
+              ],
+              "path": [
+                "reservations",
+                ":reservationId"
+              ],
+              "variable": [
+                {
+                  "key": "reservationId",
+                  "value": "rsv_9Qb1Fh",
+                  "description": "Path parameter reservationId for cancelReservation."
+                }
+              ]
+            },
+            "description": "Releases a soft hold early and returns the units to available stock. Order cancellation and checkout abandonment both trigger this so stock is not stranded until the reservation expires on its own.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Commit a reservation to a pick",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{inventoryBaseUrl}}/reservations/:reservationId/commit",
+              "host": [
+                "{{inventoryBaseUrl}}"
+              ],
+              "path": [
+                "reservations",
+                ":reservationId",
+                "commit"
+              ],
+              "variable": [
+                {
+                  "key": "reservationId",
+                  "value": "rsv_9Qb1Fh",
+                  "description": "Path parameter reservationId for commitReservation."
+                }
+              ]
+            },
+            "description": "Converts a soft hold into a firm allocation that the warehouse will pick, permanently decrementing available stock. The operation re-reads the order first to confirm it is still live and has not been cancelled since the hold was taken.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 The reservation after it was committed to a firm warehouse allocation",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{inventoryBaseUrl}}/reservations/:reservationId/commit",
+                  "host": [
+                    "{{inventoryBaseUrl}}"
+                  ],
+                  "path": [
+                    "reservations",
+                    ":reservationId",
+                    "commit"
+                  ],
+                  "variable": [
+                    {
+                      "key": "reservationId",
+                      "value": "rsv_9Qb1Fh",
+                      "description": "Path parameter reservationId for commitReservation."
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"reservation_id\": \"rsv_9Qb1Fh\",\n  \"order_id\": \"ord_7Kp3Vb\",\n  \"sku\": \"NC-KTL-0099\",\n  \"quantity\": 1,\n  \"status\": \"committed\",\n  \"expires_at\": \"2031-03-02T14:49:55Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "NovaCart Shipping API",
+      "description": "Dispatch and delivery tracking for NovaCart parcels. Once an order is paid and its stock is committed, a shipment is booked with a carrier, a tracking number is issued and the parcel's journey is reported back as a stream of tracking events until it is delivered.",
+      "item": [
+        {
+          "name": "Book a shipment for an order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{shippingBaseUrl}}/shipments",
+              "host": [
+                "{{shippingBaseUrl}}"
+              ],
+              "path": [
+                "shipments"
+              ]
+            },
+            "description": "Books a parcel with a carrier for an order whose stock has been committed, and returns the tracking number the shopper will follow. The operation reads the order for its lines and delivery destination, and commits the inventory reservation so the warehouse can physically pick the goods.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"ord_7Kp3Vb\",\n  \"carrier\": \"northstar_express\",\n  \"service_level\": \"standard\",\n  \"destination\": {\n    \"recipient_name\": \"Mira Velasco\",\n    \"line1\": \"88 Larkspur Way\",\n    \"line2\": \"Apt 3B\",\n    \"city\": \"Fernwood\",\n    \"region\": \"OR\",\n    \"postal_code\": \"97401\",\n    \"country\": \"US\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 The parcel was booked with the carrier and a tracking number was issued",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{shippingBaseUrl}}/shipments",
+                  "host": [
+                    "{{shippingBaseUrl}}"
+                  ],
+                  "path": [
+                    "shipments"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"shipment_id\": \"shp_6Vw2Tj\",\n  \"order_id\": \"ord_7Kp3Vb\",\n  \"carrier\": \"northstar_express\",\n  \"tracking_number\": \"NSX4410982331\",\n  \"status\": \"label_created\",\n  \"estimated_delivery\": \"2031-03-06\",\n  \"destination\": {\n    \"recipient_name\": \"Mira Velasco\",\n    \"line1\": \"88 Larkspur Way\",\n    \"line2\": \"Apt 3B\",\n    \"city\": \"Fernwood\",\n    \"region\": \"OR\",\n    \"postal_code\": \"97401\",\n    \"country\": \"US\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "List shipments page by page",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{shippingBaseUrl}}/shipments",
+              "host": [
+                "{{shippingBaseUrl}}"
+              ],
+              "path": [
+                "shipments"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "One-based page number to retrieve; the Shipping domain pages with `page` plus `size`.",
+                  "disabled": true
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "description": "Number of shipments to return per page, capped at 100.",
+                  "disabled": true
+                },
+                {
+                  "key": "orderId",
+                  "value": "",
+                  "description": "Restricts the result set to shipments booked for a single order.",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "label_created",
+                  "description": "Restricts the result set to shipments in one dispatch state.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns a page of shipments for the logistics control room, optionally narrowed to one order, one carrier or one dispatch status. Pages with one-based `page` plus `size`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 A page of shipments sorted by booking time, newest first",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{shippingBaseUrl}}/shipments",
+                  "host": [
+                    "{{shippingBaseUrl}}"
+                  ],
+                  "path": [
+                    "shipments"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "description": "One-based page number to retrieve; the Shipping domain pages with `page` plus `size`.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "size",
+                      "value": "20",
+                      "description": "Number of shipments to return per page, capped at 100.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "orderId",
+                      "value": "",
+                      "description": "Restricts the result set to shipments booked for a single order.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "label_created",
+                      "description": "Restricts the result set to shipments in one dispatch state.",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"page\": 1,\n  \"size\": 1,\n  \"total\": 214,\n  \"items\": [\n    {\n      \"shipment_id\": \"shp_6Vw2Tj\",\n      \"order_id\": \"ord_7Kp3Vb\",\n      \"carrier\": \"northstar_express\",\n      \"tracking_number\": \"NSX4410982331\",\n      \"status\": \"in_transit\",\n      \"estimated_delivery\": \"2031-03-06\",\n      \"destination\": {\n        \"recipient_name\": \"Mira Velasco\",\n        \"line1\": \"88 Larkspur Way\",\n        \"line2\": \"Apt 3B\",\n        \"city\": \"Fernwood\",\n        \"region\": \"OR\",\n        \"postal_code\": \"97401\",\n        \"country\": \"US\"\n      }\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Fetch a shipment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{shippingBaseUrl}}/shipments/:shipmentId",
+              "host": [
+                "{{shippingBaseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                ":shipmentId"
+              ],
+              "variable": [
+                {
+                  "key": "shipmentId",
+                  "value": "shp_6Vw2Tj",
+                  "description": "Path parameter shipmentId for getShipment."
+                }
+              ]
+            },
+            "description": "Retrieves a single shipment with its carrier, tracking number, current dispatch status and the destination the parcel is headed to. The account portal renders this on the order detail page.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 The requested shipment record",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{shippingBaseUrl}}/shipments/:shipmentId",
+                  "host": [
+                    "{{shippingBaseUrl}}"
+                  ],
+                  "path": [
+                    "shipments",
+                    ":shipmentId"
+                  ],
+                  "variable": [
+                    {
+                      "key": "shipmentId",
+                      "value": "shp_6Vw2Tj",
+                      "description": "Path parameter shipmentId for getShipment."
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"shipment_id\": \"shp_6Vw2Tj\",\n  \"order_id\": \"ord_7Kp3Vb\",\n  \"carrier\": \"northstar_express\",\n  \"tracking_number\": \"NSX4410982331\",\n  \"status\": \"out_for_delivery\",\n  \"estimated_delivery\": \"2031-03-06\",\n  \"destination\": {\n    \"recipient_name\": \"Mira Velasco\",\n    \"line1\": \"88 Larkspur Way\",\n    \"line2\": \"Apt 3B\",\n    \"city\": \"Fernwood\",\n    \"region\": \"OR\",\n    \"postal_code\": \"97401\",\n    \"country\": \"US\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Read a parcel's tracking history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{shippingBaseUrl}}/shipments/:shipmentId/tracking",
+              "host": [
+                "{{shippingBaseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                ":shipmentId",
+                "tracking"
+              ],
+              "variable": [
+                {
+                  "key": "shipmentId",
+                  "value": "shp_6Vw2Tj",
+                  "description": "Path parameter shipmentId for getShipmentTracking."
+                }
+              ]
+            },
+            "description": "Returns every carrier scan recorded for the parcel in chronological order, from label creation to final delivery. This is the feed behind the shopper-facing \"where is my order\" timeline.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 The parcel's carrier scan history, oldest event first",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{shippingBaseUrl}}/shipments/:shipmentId/tracking",
+                  "host": [
+                    "{{shippingBaseUrl}}"
+                  ],
+                  "path": [
+                    "shipments",
+                    ":shipmentId",
+                    "tracking"
+                  ],
+                  "variable": [
+                    {
+                      "key": "shipmentId",
+                      "value": "shp_6Vw2Tj",
+                      "description": "Path parameter shipmentId for getShipmentTracking."
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "[\n  {\n    \"event_id\": \"trk_01\",\n    \"occurred_at\": \"2031-03-03T08:02:11Z\",\n    \"status\": \"label_created\",\n    \"location\": \"Fernwood, OR\",\n    \"description\": \"Shipping label created and parcel awaiting carrier collection.\"\n  },\n  {\n    \"event_id\": \"trk_02\",\n    \"occurred_at\": \"2031-03-04T19:41:00Z\",\n    \"status\": \"in_transit\",\n    \"location\": \"Brightmoor Sort Centre\",\n    \"description\": \"Parcel departed the regional sort centre.\"\n  },\n  {\n    \"event_id\": \"trk_03\",\n    \"occurred_at\": \"2031-03-06T07:12:45Z\",\n    \"status\": \"out_for_delivery\",\n    \"location\": \"Fernwood Delivery Depot\",\n    \"description\": \"Parcel loaded onto the delivery vehicle for its final leg.\"\n  }\n]"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://api.novacart.example",
+      "description": "Root of the fictional NovaCart edge gateway.",
+      "type": "string"
+    },
+    {
+      "key": "customerBaseUrl",
+      "value": "{{baseUrl}}/customer/v1",
+      "description": "Base URL for the Customer domain.",
+      "type": "string"
+    },
+    {
+      "key": "catalogBaseUrl",
+      "value": "{{baseUrl}}/catalog/v1",
+      "description": "Base URL for the Catalog domain.",
+      "type": "string"
+    },
+    {
+      "key": "cartBaseUrl",
+      "value": "{{baseUrl}}/cart/v1",
+      "description": "Base URL for the Cart domain.",
+      "type": "string"
+    },
+    {
+      "key": "orderBaseUrl",
+      "value": "{{baseUrl}}/order/v1",
+      "description": "Base URL for the Order domain.",
+      "type": "string"
+    },
+    {
+      "key": "paymentBaseUrl",
+      "value": "{{baseUrl}}/payment/v1",
+      "description": "Base URL for the Payment domain.",
+      "type": "string"
+    },
+    {
+      "key": "inventoryBaseUrl",
+      "value": "{{baseUrl}}/inventory/v1",
+      "description": "Base URL for the Inventory domain.",
+      "type": "string"
+    },
+    {
+      "key": "shippingBaseUrl",
+      "value": "{{baseUrl}}/shipping/v1",
+      "description": "Base URL for the Shipping domain.",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.FICTIONAL.SAMPLE",
+      "description": "Placeholder JWT. Not a real credential.",
+      "type": "string"
+    },
+    {
+      "key": "apiKey",
+      "value": "nck_sandbox_FICTIONAL_0000",
+      "description": "Placeholder Catalog partner API key. Not a real credential.",
+      "type": "string"
+    }
+  ]
+}

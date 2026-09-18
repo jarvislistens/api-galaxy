@@ -1,0 +1,550 @@
+openapi: 3.0.3
+x-api-galaxy-domain: Order
+info:
+  title: NovaCart Order API
+  version: 4.0.1
+  description: >-
+    System of record for placed orders. An order is the immutable commercial contract created when a basket
+    is accepted: it freezes the lines, the price and the delivery address, and it is the object that Payment,
+    Inventory and Shipping all orbit around for the rest of the fulfilment lifecycle.
+  contact:
+    name: NovaCart Order Management Team
+    email: order-management@novacart.example
+servers:
+  - url: https://api.novacart.example/order/v1
+    description: Production edge gateway for the Order domain.
+  - url: https://sandbox.api.novacart.example/order/v1
+    description: Sandbox order book seeded with fictional orders for partner testing.
+tags:
+  - name: Orders
+    description: Placement, retrieval and cancellation of customer orders.
+security:
+  - bearerAuth: []
+paths:
+  /orders:
+    post:
+      operationId: placeOrder
+      summary: Place an order from a basket
+      description: >-
+        Accepts a basket as an order. The operation validates the shopper, re-reads the basket to freeze its
+        lines and total, reserves stock for every SKU and authorizes the payment instrument before the order
+        is written to the order book. If any of those four checks fails the order is rejected and nothing is
+        persisted.
+      tags: [Orders]
+      x-api-galaxy-depends-on:
+        - service: customer-api
+          operationId: getCustomer
+          reason: Validates the customer exists and is not blocked before the order is accepted.
+        - service: cart-api
+          operationId: getCart
+          reason: Re-reads the basket so the order freezes the exact lines and subtotal the shopper saw.
+        - service: inventory-api
+          operationId: reserveInventory
+          reason: Holds stock for every SKU on the basket so the order cannot be placed against thin air.
+        - service: payment-api
+          operationId: authorizePayment
+          reason: Authorizes the payment instrument for the order total before the order is written.
+      requestBody:
+        required: true
+        description: The basket, shopper and payment instrument that together define the order.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceOrderRequest'
+            example:
+              cart_id: crt_5Nd8Yx
+              cust_no: cus_8Fq2K1nLbZ
+              payment_method_token: pmt_tok_9Zx4Ke
+              shipping_address_id: adr_7Hc4Nm
+      responses:
+        '201':
+          description: The order was accepted and written to the order book.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              example:
+                order_id: ord_7Kp3Vb
+                cust_no: cus_8Fq2K1nLbZ
+                cart_id: crt_5Nd8Yx
+                status: pending_payment
+                total_amount: 138.0
+                currency: USD
+                placed_at: "2031-03-02T14:19:55Z"
+                lines:
+                  - line_id: oln_01
+                    product_id: prd_L4m2Xc
+                    sku: NC-KTL-0099
+                    quantity: 1
+                    unit_price: 89.0
+                    line_total: 89.0
+                  - line_id: oln_02
+                    product_id: prd_P8r0Qd
+                    sku: NC-MUG-0412
+                    quantity: 2
+                    unit_price: 24.5
+                    line_total: 49.0
+                shipping_address:
+                  line1: 88 Larkspur Way
+                  line2: Apt 3B
+                  city: Fernwood
+                  region: OR
+                  postal_code: "97401"
+                  country: US
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '402':
+          description: The payment instrument could not be authorized for the order total.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+              example:
+                type: https://docs.novacart.example/problems/payment-declined
+                title: Payment declined
+                status: 402
+                detail: The issuer declined authorization for 138.00 USD on token pmt_tok_9Zx4Ke.
+                instance: /orders
+        '409':
+          description: Stock could not be reserved for one or more lines on the basket.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+              example:
+                type: https://docs.novacart.example/problems/insufficient-stock
+                title: Insufficient stock
+                status: 409
+                detail: Only 1 unit of NC-MUG-0412 is available and 2 were requested.
+                instance: /orders
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    get:
+      operationId: listOrders
+      summary: List orders page by page
+      description: >-
+        Returns a page of orders for the account portal and the support console, optionally narrowed to one
+        shopper or one lifecycle status. Pages with one-based `page` plus `size`.
+      tags: [Orders]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: custNo
+          in: query
+          required: false
+          description: Restricts the result set to orders belonging to a single shopper identifier.
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Restricts the result set to orders sitting in one lifecycle state.
+          schema:
+            type: string
+            enum: [pending_payment, paid, fulfilling, shipped, delivered, cancelled]
+      responses:
+        '200':
+          description: A page of orders sorted by placement time, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Envelope carrying one page of orders plus the paging counters.
+                properties:
+                  page:
+                    type: integer
+                    description: One-based index of the page that was returned.
+                  size:
+                    type: integer
+                    description: Maximum number of records requested for this page.
+                  total:
+                    type: integer
+                    description: Total number of orders matching the filters across every page.
+                  items:
+                    type: array
+                    description: The order records contained in this page.
+                    items:
+                      $ref: '#/components/schemas/Order'
+              example:
+                page: 1
+                size: 1
+                total: 37
+                items:
+                  - order_id: ord_7Kp3Vb
+                    cust_no: cus_8Fq2K1nLbZ
+                    cart_id: crt_5Nd8Yx
+                    status: paid
+                    total_amount: 138.0
+                    currency: USD
+                    placed_at: "2031-03-02T14:19:55Z"
+                    lines:
+                      - line_id: oln_01
+                        product_id: prd_L4m2Xc
+                        sku: NC-KTL-0099
+                        quantity: 1
+                        unit_price: 89.0
+                        line_total: 89.0
+                    shipping_address:
+                      line1: 88 Larkspur Way
+                      city: Fernwood
+                      region: OR
+                      postal_code: "97401"
+                      country: US
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /orders/{orderId}:
+    get:
+      operationId: getOrder
+      summary: Fetch a single order
+      description: >-
+        Retrieves the full order record including frozen lines, total and delivery address. Payment capture,
+        inventory commitment and shipment creation all read the order through this operation to confirm what
+        they are acting on.
+      tags: [Orders]
+      parameters:
+        - $ref: '#/components/parameters/OrderIdParam'
+      responses:
+        '200':
+          description: The requested order record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              example:
+                order_id: ord_7Kp3Vb
+                cust_no: cus_8Fq2K1nLbZ
+                cart_id: crt_5Nd8Yx
+                status: paid
+                total_amount: 138.0
+                currency: USD
+                placed_at: "2031-03-02T14:19:55Z"
+                lines:
+                  - line_id: oln_01
+                    product_id: prd_L4m2Xc
+                    sku: NC-KTL-0099
+                    quantity: 1
+                    unit_price: 89.0
+                    line_total: 89.0
+                  - line_id: oln_02
+                    product_id: prd_P8r0Qd
+                    sku: NC-MUG-0412
+                    quantity: 2
+                    unit_price: 24.5
+                    line_total: 49.0
+                shipping_address:
+                  line1: 88 Larkspur Way
+                  line2: Apt 3B
+                  city: Fernwood
+                  region: OR
+                  postal_code: "97401"
+                  country: US
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /orders/{orderId}/cancel:
+    post:
+      operationId: cancelOrder
+      summary: Cancel an order
+      description: >-
+        Cancels an order that has not yet shipped, moving it to the cancelled state. Releasing the stock hold
+        and refunding any captured payment are handled asynchronously by the fulfilment choreography once the
+        cancellation is recorded.
+      tags: [Orders]
+      parameters:
+        - $ref: '#/components/parameters/OrderIdParam'
+      requestBody:
+        required: false
+        description: Optional cancellation context recorded against the order for reporting.
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Reason metadata captured with the cancellation.
+              properties:
+                reason_code:
+                  type: string
+                  description: Controlled vocabulary code explaining why the order was cancelled.
+                  enum: [customer_request, fraud_review, stock_shortfall, payment_failure]
+                  example: customer_request
+                note:
+                  type: string
+                  description: Free-text note from the agent or shopper describing the circumstances.
+                  example: Shopper found the kettle cheaper elsewhere.
+            example:
+              reason_code: customer_request
+              note: Shopper changed their mind before dispatch.
+      responses:
+        '200':
+          description: The order after it was moved into the cancelled state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              example:
+                order_id: ord_7Kp3Vb
+                cust_no: cus_8Fq2K1nLbZ
+                cart_id: crt_5Nd8Yx
+                status: cancelled
+                total_amount: 138.0
+                currency: USD
+                placed_at: "2031-03-02T14:19:55Z"
+                lines: []
+                shipping_address:
+                  line1: 88 Larkspur Way
+                  city: Fernwood
+                  region: OR
+                  postal_code: "97401"
+                  country: US
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The order has already shipped and can no longer be cancelled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+              example:
+                type: https://docs.novacart.example/problems/order-not-cancellable
+                title: Order not cancellable
+                status: 409
+                detail: Order ord_7Kp3Vb has already shipped and cannot be cancelled.
+                instance: /orders/ord_7Kp3Vb/cancel
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Short-lived JWT access token issued by the NovaCart identity provider. Shopper tokens may only read
+        their own orders; back-office scopes are required to list across shoppers.
+  parameters:
+    OrderIdParam:
+      name: orderId
+      in: path
+      required: true
+      description: Identifier of the order, for example `ord_7Kp3Vb`.
+      schema:
+        type: string
+    PageParam:
+      name: page
+      in: query
+      required: false
+      description: One-based page number to retrieve; the Order domain pages with `page` plus `size`.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    SizeParam:
+      name: size
+      in: query
+      required: false
+      description: Number of orders to return per page, capped at 100.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    BadRequest:
+      description: The request payload or query string failed validation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: https://docs.novacart.example/problems/invalid-request
+            title: Invalid request
+            status: 400
+            detail: The field 'cust_no' is required when placing an order.
+            instance: /orders
+    Unauthorized:
+      description: The bearer token is missing, expired or lacks the scope for this order.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: https://docs.novacart.example/problems/unauthorized
+            title: Unauthorized
+            status: 401
+            detail: A valid bearer token is required to read the order book.
+            instance: /orders
+    NotFound:
+      description: No order exists for the supplied identifier.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: https://docs.novacart.example/problems/order-not-found
+            title: Order not found
+            status: 404
+            detail: No order was found for identifier ord_000000.
+            instance: /orders/ord_000000
+  schemas:
+    Order:
+      type: object
+      description: >-
+        An accepted order. Once written, the lines, total and delivery address are frozen; only the
+        lifecycle `status` moves as payment, fulfilment and delivery progress.
+      required: [order_id, cust_no, status, total_amount, currency, placed_at, lines]
+      properties:
+        order_id:
+          type: string
+          description: Identifier of the order, quoted to the shopper and used by every downstream domain.
+          example: ord_7Kp3Vb
+        cust_no:
+          type: string
+          description: >-
+            Identifier of the shopper who placed the order. This is the same concept the Customer API calls
+            `customer_id` and the Payment API calls `party_key`, simply under a legacy Order domain name.
+          example: cus_8Fq2K1nLbZ
+        cart_id:
+          type: string
+          description: Identifier of the basket the order was frozen from, kept for audit and reconciliation.
+          example: crt_5Nd8Yx
+        status:
+          type: string
+          description: Current lifecycle state of the order as it moves from payment through to delivery.
+          enum: [pending_payment, paid, fulfilling, shipped, delivered, cancelled]
+          example: paid
+        total_amount:
+          type: number
+          format: double
+          description: >-
+            Grand total payable for the order in the stated currency, carried as a JSON number. The Payment
+            API models the very same money value as a decimal string.
+          example: 138.0
+        currency:
+          type: string
+          description: ISO 4217 currency code the order total is denominated in.
+          example: USD
+        placed_at:
+          type: string
+          format: date-time
+          description: Moment the order was accepted into the order book, in UTC.
+          example: "2031-03-02T14:19:55Z"
+        lines:
+          type: array
+          description: Frozen copy of the basket lines, one entry per SKU with its own line total.
+          items:
+            $ref: '#/components/schemas/OrderLine'
+        shipping_address:
+          type: object
+          description: >-
+            Postal address the order should be delivered to, copied from the shopper's saved address book at
+            the moment of placement so later edits do not move an in-flight parcel.
+          properties:
+            line1:
+              type: string
+              description: First line of the delivery street address.
+              example: 88 Larkspur Way
+            line2:
+              type: string
+              description: Optional second delivery address line for apartment or suite detail.
+              example: Apt 3B
+            city:
+              type: string
+              description: Delivery city or town.
+              example: Fernwood
+            region:
+              type: string
+              description: Delivery state, province or region code.
+              example: OR
+            postal_code:
+              type: string
+              description: Delivery postal or ZIP code.
+              example: "97401"
+            country:
+              type: string
+              description: ISO 3166-1 alpha-2 country code for the delivery address.
+              example: US
+    OrderLine:
+      type: object
+      description: A frozen line on an order, capturing what was bought, how many and at what price.
+      required: [sku, quantity, unit_price]
+      properties:
+        line_id:
+          type: string
+          description: Identifier of this line within the order.
+          example: oln_01
+        product_id:
+          type: string
+          description: Catalogue product identifier the line was created from.
+          example: prd_L4m2Xc
+        sku:
+          type: string
+          description: Stock-keeping unit that Inventory reserves and the warehouse picks for this line.
+          example: NC-KTL-0099
+        quantity:
+          type: integer
+          description: Number of units ordered on this line.
+          example: 2
+        unit_price:
+          type: number
+          format: double
+          description: Price per unit frozen at the moment the order was accepted.
+          example: 24.5
+        line_total:
+          type: number
+          format: double
+          description: Quantity multiplied by unit price for this line, before tax and shipping.
+          example: 49.0
+    PlaceOrderRequest:
+      type: object
+      description: >-
+        Instruction to convert a basket into an order. All three identifying fields must agree: the basket
+        must exist, belong to the named shopper and be priced in a currency the payment token supports.
+      required: [cart_id, cust_no, payment_method_token]
+      properties:
+        cart_id:
+          type: string
+          description: Identifier of the basket whose lines and subtotal should be frozen into the order.
+          example: crt_5Nd8Yx
+        cust_no:
+          type: string
+          description: >-
+            Shopper identifier placing the order, equivalent to `customer_id` on the basket and to
+            `party_key` on the payment that follows.
+          example: cus_8Fq2K1nLbZ
+        payment_method_token:
+          type: string
+          description: Vaulted payment instrument token that will be authorized for the order total.
+          example: pmt_tok_9Zx4Ke
+        shipping_address_id:
+          type: string
+          description: Identifier of the shopper's saved address to copy onto the order as the destination.
+          example: adr_7Hc4Nm
+    ProblemResponse:
+      type: object
+      description: >-
+        RFC 7807 style problem document used across the Order domain. Note that Customer, Catalog and
+        Inventory report failures with a differently shaped `Error` object instead.
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          description: Absolute URI identifying the problem class, resolvable to human documentation.
+          example: https://docs.novacart.example/problems/order-not-found
+        title:
+          type: string
+          description: Short, human-readable summary of the problem type.
+          example: Order not found
+        status:
+          type: integer
+          description: HTTP status code the origin server generated for this occurrence.
+          example: 404
+        detail:
+          type: string
+          description: Human-readable explanation specific to this particular occurrence.
+          example: No order was found for identifier ord_000000.
+        instance:
+          type: string
+          description: URI reference identifying the specific occurrence of the problem.
+          example: /orders/ord_000000

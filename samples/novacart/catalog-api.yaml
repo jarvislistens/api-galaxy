@@ -1,0 +1,479 @@
+openapi: 3.0.3
+x-api-galaxy-domain: Catalog
+info:
+  title: NovaCart Catalog API
+  version: 3.1.2
+  description: >-
+    Read-optimised product catalogue and search surface for the NovaCart storefront. It serves merchandised
+    product records, the category tree and the free-text search index, and is the only NovaCart service that
+    authenticates with a static partner API key rather than a shopper bearer token.
+  contact:
+    name: NovaCart Merchandising Platform Team
+    email: merchandising@novacart.example
+servers:
+  - url: https://api.novacart.example/catalog/v1
+    description: Production edge gateway for the Catalog domain.
+  - url: https://sandbox.api.novacart.example/catalog/v1
+    description: Sandbox catalogue loaded with a fictional 200-product assortment.
+tags:
+  - name: Products
+    description: Merchandised product records including price, brand and structured attributes.
+  - name: Search
+    description: Free-text and faceted search over the published catalogue.
+  - name: Categories
+    description: The merchandising category tree used for storefront navigation.
+security:
+  - apiKeyAuth: []
+paths:
+  /products:
+    get:
+      operationId: listProducts
+      summary: Browse published products
+      description: >-
+        Returns published products for storefront browse pages, optionally narrowed to a single category or
+        brand. This route pages with `limit` and `offset`, which differs from the `page` and `size` style
+        used by the Customer, Order and Shipping domains.
+      tags: [Products]
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+        - name: categoryId
+          in: query
+          required: false
+          description: Restricts results to products merchandised under a single category node.
+          schema:
+            type: string
+        - name: brand
+          in: query
+          required: false
+          description: Restricts results to a single brand name as shown on the product record.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A window of published products selected by limit and offset.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Envelope carrying one window of products plus the offset counters.
+                properties:
+                  limit:
+                    type: integer
+                    description: Maximum number of records the caller asked for in this window.
+                  offset:
+                    type: integer
+                    description: Zero-based index of the first record in this window.
+                  total:
+                    type: integer
+                    description: Total number of products matching the filters across all windows.
+                  items:
+                    type: array
+                    description: The product records contained in this window.
+                    items:
+                      $ref: '#/components/schemas/Product'
+              example:
+                limit: 2
+                offset: 0
+                total: 1864
+                items:
+                  - product_id: prd_L4m2Xc
+                    sku: NC-KTL-0099
+                    name: Aurora Pour-Over Kettle
+                    description: A 1.0 litre gooseneck kettle with a variable-temperature base.
+                    brand: Aurora Home
+                    category_id: cat_kitchen_brewing
+                    price: 89.0
+                    currency: USD
+                    attributes:
+                      colour: matte black
+                      capacity_litres: "1.0"
+                  - product_id: prd_P8r0Qd
+                    sku: NC-MUG-0412
+                    name: Kilnwork Stoneware Mug
+                    description: A 350 ml reactive-glaze stoneware mug fired in small batches.
+                    brand: Kilnwork
+                    category_id: cat_kitchen_drinkware
+                    price: 24.5
+                    currency: USD
+                    attributes:
+                      colour: ember
+                      capacity_ml: "350"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /products/{productId}:
+    get:
+      operationId: getProduct
+      summary: Fetch one product record
+      description: >-
+        Retrieves the complete merchandised record for a single product, including its selling price and the
+        structured attribute bag rendered on the product detail page. Cart calls this before adding a line so
+        the unit price it stores matches the published price.
+      tags: [Products]
+      parameters:
+        - $ref: '#/components/parameters/ProductIdParam'
+      responses:
+        '200':
+          description: The requested product record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+              example:
+                product_id: prd_L4m2Xc
+                sku: NC-KTL-0099
+                name: Aurora Pour-Over Kettle
+                description: A 1.0 litre gooseneck kettle with a variable-temperature base and a hold timer.
+                brand: Aurora Home
+                category_id: cat_kitchen_brewing
+                price: 89.0
+                currency: USD
+                attributes:
+                  colour: matte black
+                  capacity_litres: "1.0"
+                  warranty_months: "24"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /search:
+    get:
+      operationId: searchProducts
+      summary: Search the catalogue by keyword
+      description: >-
+        Runs a relevance-ranked keyword search across product names, descriptions and brands. Results are
+        paged with an opaque `cursor` token rather than page numbers or offsets, giving the estate a third
+        distinct pagination style.
+      tags: [Search]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Free-text query typed by the shopper, for example "pour over kettle".
+          schema:
+            type: string
+            minLength: 1
+        - $ref: '#/components/parameters/CursorParam'
+        - name: pageSize
+          in: query
+          required: false
+          description: Number of hits to return in this cursor page, capped at 50 by the search tier.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: A relevance-ranked page of search hits plus the cursor for the next page.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductSearchResult'
+              example:
+                query: pour over kettle
+                page_size: 2
+                next_cursor: eyJvIjoyfQ
+                hits:
+                  - product_id: prd_L4m2Xc
+                    sku: NC-KTL-0099
+                    name: Aurora Pour-Over Kettle
+                    description: A 1.0 litre gooseneck kettle with a variable-temperature base.
+                    brand: Aurora Home
+                    category_id: cat_kitchen_brewing
+                    price: 89.0
+                    currency: USD
+                    attributes:
+                      colour: matte black
+                  - product_id: prd_W2v7Hn
+                    sku: NC-DRP-0031
+                    name: Slowline Glass Dripper
+                    description: A borosilicate cone dripper sized for two cups.
+                    brand: Slowline
+                    category_id: cat_kitchen_brewing
+                    price: 32.0
+                    currency: USD
+                    attributes:
+                      colour: clear
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /categories:
+    get:
+      operationId: listCategories
+      summary: List merchandising categories
+      description: >-
+        Returns the merchandising category tree used to build storefront navigation. Each node reports its
+        parent so a client can rebuild the hierarchy in a single pass.
+      tags: [Categories]
+      parameters:
+        - name: parentId
+          in: query
+          required: false
+          description: Returns only the direct children of the given category node.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The category nodes matching the request.
+          content:
+            application/json:
+              schema:
+                type: array
+                description: Flat list of category nodes that a client can assemble into a tree.
+                items:
+                  $ref: '#/components/schemas/Category'
+              example:
+                - category_id: cat_kitchen
+                  name: Kitchen
+                  parent_id: null
+                  description: Cookware, brewing gear and everyday drinkware.
+                  product_count: 412
+                - category_id: cat_kitchen_brewing
+                  name: Coffee and Tea Brewing
+                  parent_id: cat_kitchen
+                  description: Kettles, drippers, grinders and brewing accessories.
+                  product_count: 96
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: >-
+        Long-lived partner API key presented in the `X-API-Key` header. Keys are scoped to a storefront or
+        syndication partner and are rotated on a ninety day cycle.
+  parameters:
+    ProductIdParam:
+      name: productId
+      in: path
+      required: true
+      description: Catalogue product identifier, for example `prd_L4m2Xc`.
+      schema:
+        type: string
+    LimitParam:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of records to return in this window; the Catalog domain pages by offset.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 24
+    OffsetParam:
+      name: offset
+      in: query
+      required: false
+      description: Zero-based index of the first record to return in this window.
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    CursorParam:
+      name: cursor
+      in: query
+      required: false
+      description: >-
+        Opaque continuation token returned as `next_cursor` by the previous search call. Omit it to start
+        from the most relevant hit.
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: The query string failed validation, for example a missing or empty search term.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: invalid_request
+            message: The query parameter 'q' must contain at least one character.
+            details:
+              - field: q
+                issue: min_length
+    Unauthorized:
+      description: The `X-API-Key` header is missing, unknown or has been revoked.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: unauthorized
+            message: A valid X-API-Key header is required to call the catalogue.
+            details: []
+    NotFound:
+      description: No published product exists for the supplied identifier.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: product_not_found
+            message: No published product was found for identifier prd_000000.
+            details: []
+  schemas:
+    Product:
+      type: object
+      description: >-
+        A merchandised product as published to the storefront. The `sku` is the stock-keeping unit that
+        Inventory and Cart both key on, while `product_id` is the catalogue's own surrogate key.
+      required: [product_id, sku, name, price, currency]
+      properties:
+        product_id:
+          type: string
+          description: Catalogue surrogate key for the product, stable across price and copy changes.
+          example: prd_L4m2Xc
+        sku:
+          type: string
+          description: >-
+            Stock-keeping unit shared with Inventory and copied onto cart and order lines; the physical
+            article that actually gets picked and packed.
+          example: NC-KTL-0099
+        name:
+          type: string
+          description: Merchandised display name shown on listing and detail pages.
+          example: Aurora Pour-Over Kettle
+        description:
+          type: string
+          description: Long-form marketing copy describing the product, rendered on the detail page.
+          example: A 1.0 litre gooseneck kettle with a variable-temperature base and a hold timer.
+        brand:
+          type: string
+          description: Brand the product is sold under, used for faceting and brand landing pages.
+          example: Aurora Home
+        category_id:
+          type: string
+          description: Identifier of the merchandising category node the product hangs from.
+          example: cat_kitchen_brewing
+        price:
+          type: number
+          format: double
+          description: Current selling price in the stated currency, excluding tax and shipping.
+          example: 89.0
+        currency:
+          type: string
+          description: ISO 4217 currency code the price is quoted in.
+          example: USD
+        attributes:
+          type: object
+          description: >-
+            Free-form bag of merchandising attributes such as colour or capacity, rendered as the product
+            specification table.
+          additionalProperties:
+            type: string
+          example:
+            colour: matte black
+            capacity_litres: "1.0"
+    Category:
+      type: object
+      description: A single node in the merchandising category tree used for storefront navigation.
+      required: [category_id, name]
+      properties:
+        category_id:
+          type: string
+          description: Stable identifier for the category node.
+          example: cat_kitchen_brewing
+        name:
+          type: string
+          description: Display name of the category as shown in navigation.
+          example: Coffee and Tea Brewing
+        parent_id:
+          type: string
+          nullable: true
+          description: Identifier of the parent node, or null when this node sits at the top of the tree.
+          example: cat_kitchen
+        description:
+          type: string
+          description: Short editorial blurb shown on the category landing page.
+          example: Kettles, drippers, grinders and brewing accessories.
+        product_count:
+          type: integer
+          description: Number of published products currently merchandised under this node.
+          example: 96
+    ProductSearchResult:
+      type: object
+      description: >-
+        One cursor page of relevance-ranked search hits. The caller repeats the search with `next_cursor`
+        to walk forward through the result set.
+      required: [query, hits]
+      properties:
+        query:
+          type: string
+          description: Echo of the free-text query that produced these hits.
+          example: pour over kettle
+        page_size:
+          type: integer
+          description: Number of hits returned in this cursor page.
+          example: 20
+        next_cursor:
+          type: string
+          nullable: true
+          description: Opaque token to pass back as `cursor` for the next page, or null at the end.
+          example: eyJvIjoyfQ
+        hits:
+          type: array
+          description: Product records matching the query, ordered by descending relevance.
+          items:
+            $ref: '#/components/schemas/Product'
+    LegacyPromoCode:
+      type: object
+      description: >-
+        Retired promotional-code record from the pre-2029 campaign engine. Nothing in this specification
+        references it any more; it is retained only so historical exports keep deserialising.
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: The promotional code a shopper would have typed at the old checkout.
+          example: SPRING-2028
+        percent_off:
+          type: integer
+          description: Percentage discount the code applied to the basket subtotal.
+          example: 15
+        expires_at:
+          type: string
+          format: date-time
+          description: Moment the code stopped being redeemable, in UTC.
+          example: "2028-06-30T23:59:59Z"
+        campaign:
+          type: string
+          description: Name of the marketing campaign the code belonged to.
+          example: Spring Refresh 2028
+    Error:
+      type: object
+      description: >-
+        Standard Catalog domain error envelope, intentionally identical in shape to the Customer and
+        Inventory error object so storefront clients can share one handler across read APIs.
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable error code clients can branch on.
+          example: product_not_found
+        message:
+          type: string
+          description: Human-readable explanation of what went wrong, safe to log.
+          example: No published product was found for identifier prd_000000.
+        details:
+          type: array
+          description: Optional per-field breakdown explaining which inputs were rejected and why.
+          items:
+            type: object
+            description: A single field-level validation complaint.
+            properties:
+              field:
+                type: string
+                description: Name of the offending request field or query parameter.
+                example: q
+              issue:
+                type: string
+                description: Short token describing the nature of the problem with that field.
+                example: min_length

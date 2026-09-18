@@ -1,0 +1,494 @@
+openapi: 3.0.3
+x-api-galaxy-domain: Shipping
+info:
+  title: NovaCart Shipping API
+  version: 1.7.1
+  description: >-
+    Dispatch and delivery tracking for NovaCart parcels. Once an order is paid and its stock is committed, a
+    shipment is booked with a carrier, a tracking number is issued and the parcel's journey is reported back
+    as a stream of tracking events until it is delivered.
+  contact:
+    name: NovaCart Fulfilment and Logistics Team
+    email: logistics@novacart.example
+servers:
+  - url: https://api.novacart.example/shipping/v1
+    description: Production edge gateway for the Shipping domain.
+  - url: https://sandbox.api.novacart.example/shipping/v1
+    description: Sandbox carrier simulator that advances fictional parcels on a fixed timetable.
+tags:
+  - name: Shipments
+    description: Booking parcels with a carrier and reading their current dispatch state.
+  - name: Tracking
+    description: The carrier scan history for a parcel in transit.
+security:
+  - bearerAuth: []
+paths:
+  /shipments:
+    post:
+      operationId: createShipment
+      summary: Book a shipment for an order
+      description: >-
+        Books a parcel with a carrier for an order whose stock has been committed, and returns the tracking
+        number the shopper will follow. The operation reads the order for its lines and delivery destination,
+        and commits the inventory reservation so the warehouse can physically pick the goods.
+      tags: [Shipments]
+      x-api-galaxy-depends-on:
+        - service: order-api
+          operationId: getOrder
+          reason: Reads the order lines and delivery destination that the parcel must be booked against.
+        - service: inventory-api
+          operationId: commitReservation
+          reason: Turns the soft stock hold into a firm allocation so the warehouse can pick the goods.
+      requestBody:
+        required: true
+        description: The order to dispatch, the carrier to use and where the parcel should go.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShipmentRequest'
+            example:
+              order_id: ord_7Kp3Vb
+              carrier: northstar_express
+              service_level: standard
+              destination:
+                recipient_name: Mira Velasco
+                line1: 88 Larkspur Way
+                line2: Apt 3B
+                city: Fernwood
+                region: OR
+                postal_code: "97401"
+                country: US
+      responses:
+        '201':
+          description: The parcel was booked with the carrier and a tracking number was issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shipment'
+              example:
+                shipment_id: shp_6Vw2Tj
+                order_id: ord_7Kp3Vb
+                carrier: northstar_express
+                tracking_number: NSX4410982331
+                status: label_created
+                estimated_delivery: "2031-03-06"
+                destination:
+                  recipient_name: Mira Velasco
+                  line1: 88 Larkspur Way
+                  line2: Apt 3B
+                  city: Fernwood
+                  region: OR
+                  postal_code: "97401"
+                  country: US
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: The order is not in a dispatchable state or has already been shipped.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+              example:
+                type: https://docs.novacart.example/problems/order-not-dispatchable
+                title: Order not dispatchable
+                status: 409
+                detail: Order ord_7Kp3Vb already has shipment shp_6Vw2Tj booked against it.
+                instance: /shipments
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    get:
+      operationId: listShipments
+      summary: List shipments page by page
+      description: >-
+        Returns a page of shipments for the logistics control room, optionally narrowed to one order, one
+        carrier or one dispatch status. Pages with one-based `page` plus `size`.
+      tags: [Shipments]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: orderId
+          in: query
+          required: false
+          description: Restricts the result set to shipments booked for a single order.
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Restricts the result set to shipments in one dispatch state.
+          schema:
+            type: string
+            enum: [label_created, picked, in_transit, out_for_delivery, delivered, exception]
+      responses:
+        '200':
+          description: A page of shipments sorted by booking time, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Envelope carrying one page of shipments plus the paging counters.
+                properties:
+                  page:
+                    type: integer
+                    description: One-based index of the page that was returned.
+                  size:
+                    type: integer
+                    description: Maximum number of records requested for this page.
+                  total:
+                    type: integer
+                    description: Total number of shipments matching the filters across every page.
+                  items:
+                    type: array
+                    description: The shipment records contained in this page.
+                    items:
+                      $ref: '#/components/schemas/Shipment'
+              example:
+                page: 1
+                size: 1
+                total: 214
+                items:
+                  - shipment_id: shp_6Vw2Tj
+                    order_id: ord_7Kp3Vb
+                    carrier: northstar_express
+                    tracking_number: NSX4410982331
+                    status: in_transit
+                    estimated_delivery: "2031-03-06"
+                    destination:
+                      recipient_name: Mira Velasco
+                      line1: 88 Larkspur Way
+                      line2: Apt 3B
+                      city: Fernwood
+                      region: OR
+                      postal_code: "97401"
+                      country: US
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /shipments/{shipmentId}:
+    get:
+      operationId: getShipment
+      summary: Fetch a shipment
+      description: >-
+        Retrieves a single shipment with its carrier, tracking number, current dispatch status and the
+        destination the parcel is headed to. The account portal renders this on the order detail page.
+      tags: [Shipments]
+      parameters:
+        - $ref: '#/components/parameters/ShipmentIdParam'
+      responses:
+        '200':
+          description: The requested shipment record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shipment'
+              example:
+                shipment_id: shp_6Vw2Tj
+                order_id: ord_7Kp3Vb
+                carrier: northstar_express
+                tracking_number: NSX4410982331
+                status: out_for_delivery
+                estimated_delivery: "2031-03-06"
+                destination:
+                  recipient_name: Mira Velasco
+                  line1: 88 Larkspur Way
+                  line2: Apt 3B
+                  city: Fernwood
+                  region: OR
+                  postal_code: "97401"
+                  country: US
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /shipments/{shipmentId}/tracking:
+    get:
+      operationId: getShipmentTracking
+      summary: Read a parcel's tracking history
+      description: >-
+        Returns every carrier scan recorded for the parcel in chronological order, from label creation to
+        final delivery. This is the feed behind the shopper-facing "where is my order" timeline.
+      tags: [Tracking]
+      parameters:
+        - $ref: '#/components/parameters/ShipmentIdParam'
+      responses:
+        '200':
+          description: The parcel's carrier scan history, oldest event first.
+          content:
+            application/json:
+              schema:
+                type: array
+                description: Chronological list of carrier scans for the parcel.
+                items:
+                  $ref: '#/components/schemas/TrackingEvent'
+              example:
+                - event_id: trk_01
+                  occurred_at: "2031-03-03T08:02:11Z"
+                  status: label_created
+                  location: Fernwood, OR
+                  description: Shipping label created and parcel awaiting carrier collection.
+                - event_id: trk_02
+                  occurred_at: "2031-03-04T19:41:00Z"
+                  status: in_transit
+                  location: Brightmoor Sort Centre
+                  description: Parcel departed the regional sort centre.
+                - event_id: trk_03
+                  occurred_at: "2031-03-06T07:12:45Z"
+                  status: out_for_delivery
+                  location: Fernwood Delivery Depot
+                  description: Parcel loaded onto the delivery vehicle for its final leg.
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Short-lived JWT access token issued by the NovaCart identity provider. Booking a shipment requires a
+        fulfilment scope; shoppers may only read shipments attached to their own orders.
+  parameters:
+    ShipmentIdParam:
+      name: shipmentId
+      in: path
+      required: true
+      description: Identifier of the shipment, for example `shp_6Vw2Tj`.
+      schema:
+        type: string
+    PageParam:
+      name: page
+      in: query
+      required: false
+      description: One-based page number to retrieve; the Shipping domain pages with `page` plus `size`.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    SizeParam:
+      name: size
+      in: query
+      required: false
+      description: Number of shipments to return per page, capped at 100.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    BadRequest:
+      description: The request payload or query string failed validation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: https://docs.novacart.example/problems/invalid-request
+            title: Invalid request
+            status: 400
+            detail: The destination must carry a postal_code and a two-letter country code.
+            instance: /shipments
+    Unauthorized:
+      description: The bearer token is missing, expired or lacks the fulfilment scope.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: https://docs.novacart.example/problems/unauthorized
+            title: Unauthorized
+            status: 401
+            detail: A valid bearer token with shipping scope is required.
+            instance: /shipments
+    NotFound:
+      description: No shipment exists for the supplied identifier.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: https://docs.novacart.example/problems/shipment-not-found
+            title: Shipment not found
+            status: 404
+            detail: No shipment was found for identifier shp_000000.
+            instance: /shipments/shp_000000
+  schemas:
+    Shipment:
+      type: object
+      description: >-
+        A parcel booked with a carrier against one order. A single order may produce more than one shipment
+        when its lines are picked from different warehouses.
+      required: [shipment_id, order_id, carrier, status, destination]
+      properties:
+        shipment_id:
+          type: string
+          description: Identifier of the shipment within the Shipping domain.
+          example: shp_6Vw2Tj
+        order_id:
+          type: string
+          description: Identifier of the order this parcel fulfils, as issued by the Order API.
+          example: ord_7Kp3Vb
+        carrier:
+          type: string
+          description: Carrier the parcel was tendered to, chosen by the service-level routing rules.
+          enum: [northstar_express, cedarline_post, harbourway_freight]
+          example: northstar_express
+        tracking_number:
+          type: string
+          description: Carrier-issued tracking reference the shopper can quote or look up.
+          example: NSX4410982331
+        status:
+          type: string
+          description: Current dispatch state of the parcel, derived from the latest carrier scan.
+          enum: [label_created, picked, in_transit, out_for_delivery, delivered, exception]
+          example: in_transit
+        estimated_delivery:
+          type: string
+          format: date
+          description: Carrier's current best estimate of the delivery date.
+          example: "2031-03-06"
+        destination:
+          type: object
+          description: >-
+            The postal address the parcel is being delivered to, captured as the recipient's name plus the
+            street, city, region, postal code and country the carrier will sort on.
+          required: [line1, city, postal_code, country]
+          properties:
+            recipient_name:
+              type: string
+              description: Full name of the person the parcel is addressed to, printed on the label.
+              example: Mira Velasco
+            line1:
+              type: string
+              description: First line of the street address, normally house number and street name.
+              example: 88 Larkspur Way
+            line2:
+              type: string
+              description: Optional second address line for apartment, suite or floor detail.
+              example: Apt 3B
+            city:
+              type: string
+              description: City or town the parcel is being delivered to.
+              example: Fernwood
+            region:
+              type: string
+              description: State, province or region code used for carrier routing.
+              example: OR
+            postal_code:
+              type: string
+              description: Postal or ZIP code the carrier sorts the parcel on.
+              example: "97401"
+            country:
+              type: string
+              description: ISO 3166-1 alpha-2 country code for the delivery address.
+              example: US
+    TrackingEvent:
+      type: object
+      description: A single carrier scan describing where the parcel was and what happened to it.
+      required: [occurred_at, status]
+      properties:
+        event_id:
+          type: string
+          description: Identifier of this scan within the parcel's tracking history.
+          example: trk_02
+        occurred_at:
+          type: string
+          format: date-time
+          description: Moment the carrier recorded the scan, in UTC.
+          example: "2031-03-04T19:41:00Z"
+        status:
+          type: string
+          description: Dispatch state the parcel entered as a result of this scan.
+          enum: [label_created, picked, in_transit, out_for_delivery, delivered, exception]
+          example: in_transit
+        location:
+          type: string
+          description: Human-readable place the scan happened, such as a depot or sort centre.
+          example: Brightmoor Sort Centre
+        description:
+          type: string
+          description: Carrier's own narrative for the scan, shown verbatim on the tracking timeline.
+          example: Parcel departed the regional sort centre.
+    CreateShipmentRequest:
+      type: object
+      description: Instruction to book a parcel with a carrier for an order that is ready to dispatch.
+      required: [order_id, destination]
+      properties:
+        order_id:
+          type: string
+          description: Identifier of the order being dispatched.
+          example: ord_7Kp3Vb
+        carrier:
+          type: string
+          description: Preferred carrier; omit to let the routing rules choose on cost and service level.
+          enum: [northstar_express, cedarline_post, harbourway_freight]
+          example: northstar_express
+        service_level:
+          type: string
+          description: Delivery speed the shopper paid for, which constrains carrier selection.
+          enum: [economy, standard, express]
+          example: standard
+        destination:
+          type: object
+          description: >-
+            Where the parcel should be delivered: the recipient's name plus the street, city, region, postal
+            code and country the carrier will sort on.
+          required: [line1, city, postal_code, country]
+          properties:
+            recipient_name:
+              type: string
+              description: Full name of the person the parcel is addressed to, printed on the label.
+              example: Mira Velasco
+            line1:
+              type: string
+              description: First line of the street address, normally house number and street name.
+              example: 88 Larkspur Way
+            line2:
+              type: string
+              description: Optional second address line for apartment, suite or floor detail.
+              example: Apt 3B
+            city:
+              type: string
+              description: City or town the parcel is being delivered to.
+              example: Fernwood
+            region:
+              type: string
+              description: State, province or region code used for carrier routing.
+              example: OR
+            postal_code:
+              type: string
+              description: Postal or ZIP code the carrier sorts the parcel on.
+              example: "97401"
+            country:
+              type: string
+              description: ISO 3166-1 alpha-2 country code for the delivery address.
+              example: US
+    ProblemResponse:
+      type: object
+      description: >-
+        RFC 7807 style problem document used across the Shipping domain, matching Cart, Order and Payment but
+        differing from the `Error` object used by Customer, Catalog and Inventory.
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          description: Absolute URI identifying the problem class, resolvable to human documentation.
+          example: https://docs.novacart.example/problems/shipment-not-found
+        title:
+          type: string
+          description: Short, human-readable summary of the problem type.
+          example: Shipment not found
+        status:
+          type: integer
+          description: HTTP status code the origin server generated for this occurrence.
+          example: 404
+        detail:
+          type: string
+          description: Human-readable explanation specific to this particular occurrence.
+          example: No shipment was found for identifier shp_000000.
+        instance:
+          type: string
+          description: URI reference identifying the specific occurrence of the problem.
+          example: /shipments/shp_000000

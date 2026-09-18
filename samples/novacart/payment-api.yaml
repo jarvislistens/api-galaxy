@@ -1,0 +1,407 @@
+openapi: 3.0.3
+x-api-galaxy-domain: Payment
+info:
+  title: NovaCart Payment API
+  version: 2.2.0
+  description: >-
+    Money movement for NovaCart orders. It authorizes a payment instrument at order placement, captures the
+    funds once fulfilment commits, and refunds all or part of an order afterwards. Monetary values are
+    modelled as decimal strings here to avoid binary floating-point drift in the ledger.
+  contact:
+    name: NovaCart Payments Team
+    email: payments@novacart.example
+servers:
+  - url: https://api.novacart.example/payment/v1
+    description: Production edge gateway for the Payment domain.
+  - url: https://sandbox.api.novacart.example/payment/v1
+    description: Sandbox processor that approves fictional test instruments deterministically.
+tags:
+  - name: Payments
+    description: Authorization, capture and retrieval of payments against an order.
+  - name: Refunds
+    description: Returning captured funds to the shopper in whole or in part.
+security:
+  - bearerAuth: []
+paths:
+  /payments/authorize:
+    post:
+      operationId: authorizePayment
+      summary: Authorize a payment for an order
+      description: >-
+        Places a hold on the shopper's payment instrument for the order total without moving any money yet.
+        Order placement calls this as its final gate, so a declined authorization means the order is never
+        written.
+      tags: [Payments]
+      requestBody:
+        required: true
+        description: The order, the paying party and the amount to hold on the instrument.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizePaymentRequest'
+            example:
+              order_id: ord_7Kp3Vb
+              party_key: cus_8Fq2K1nLbZ
+              amount: "138.00"
+              currency: USD
+              payment_method_token: pmt_tok_9Zx4Ke
+      responses:
+        '201':
+          description: The instrument was authorized and a hold is now in place for the stated amount.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+              example:
+                payment_id: pay_2Jd6Lw
+                order_id: ord_7Kp3Vb
+                party_key: cus_8Fq2K1nLbZ
+                amount: "138.00"
+                currency: USD
+                status: authorized
+                card_last4: "4417"
+                authorized_at: "2031-03-02T14:19:53Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '402':
+          description: The issuer declined the authorization request.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+              example:
+                type: https://docs.novacart.example/problems/payment-declined
+                title: Payment declined
+                status: 402
+                detail: The issuer declined authorization for 138.00 USD.
+                instance: /payments/authorize
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /payments/{paymentId}/capture:
+    post:
+      operationId: capturePayment
+      summary: Capture an authorized payment
+      description: >-
+        Converts an existing authorization hold into a settled charge, normally once Inventory has committed
+        the stock. The operation re-reads the order first so it never captures more than the order total or
+        captures against a cancelled order.
+      tags: [Payments]
+      x-api-galaxy-depends-on:
+        - service: order-api
+          operationId: getOrder
+          reason: Confirms the order is still live and the capture amount does not exceed the order total.
+      parameters:
+        - $ref: '#/components/parameters/PaymentIdParam'
+      requestBody:
+        required: false
+        description: Optional partial capture amount; when omitted the full authorized amount is captured.
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Capture instruction for an existing authorization.
+              properties:
+                amount:
+                  type: string
+                  format: decimal
+                  description: >-
+                    Decimal string amount to capture, which must not exceed the authorized amount. Omit to
+                    capture the authorization in full.
+                  example: "138.00"
+            example:
+              amount: "138.00"
+      responses:
+        '200':
+          description: The payment after the funds were captured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+              example:
+                payment_id: pay_2Jd6Lw
+                order_id: ord_7Kp3Vb
+                party_key: cus_8Fq2K1nLbZ
+                amount: "138.00"
+                currency: USD
+                status: captured
+                card_last4: "4417"
+                authorized_at: "2031-03-02T14:19:53Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The payment is not in a state that can be captured.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+              example:
+                type: https://docs.novacart.example/problems/payment-not-capturable
+                title: Payment not capturable
+                status: 409
+                detail: Payment pay_2Jd6Lw was already captured at 14:31:02Z.
+                instance: /payments/pay_2Jd6Lw/capture
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /payments/{paymentId}/refund:
+    post:
+      operationId: refundPayment
+      summary: Refund a captured payment
+      description: >-
+        Returns captured funds to the shopper's instrument, in full or in part. Partial refunds may be
+        issued repeatedly as long as the running total stays within the amount originally captured.
+      tags: [Refunds]
+      parameters:
+        - $ref: '#/components/parameters/PaymentIdParam'
+      requestBody:
+        required: true
+        description: How much to return to the shopper and why.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundRequest'
+            example:
+              amount: "24.50"
+              reason: item_returned
+              note: Shopper returned one stoneware mug.
+      responses:
+        '200':
+          description: The payment after the refund was accepted by the processor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+              example:
+                payment_id: pay_2Jd6Lw
+                order_id: ord_7Kp3Vb
+                party_key: cus_8Fq2K1nLbZ
+                amount: "113.50"
+                currency: USD
+                status: partially_refunded
+                card_last4: "4417"
+                authorized_at: "2031-03-02T14:19:53Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The requested refund exceeds the amount still available to return.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+              example:
+                type: https://docs.novacart.example/problems/refund-exceeds-capture
+                title: Refund exceeds capture
+                status: 409
+                detail: Only 113.50 USD remains available to refund on payment pay_2Jd6Lw.
+                instance: /payments/pay_2Jd6Lw/refund
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /payments/{paymentId}:
+    get:
+      operationId: getPayment
+      summary: Fetch a payment record
+      description: >-
+        Retrieves the current state of a payment, including its lifecycle status, the masked card digits and
+        the timestamp of the original authorization. Used by the account portal and by finance reconciliation.
+      tags: [Payments]
+      parameters:
+        - $ref: '#/components/parameters/PaymentIdParam'
+      responses:
+        '200':
+          description: The requested payment record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+              example:
+                payment_id: pay_2Jd6Lw
+                order_id: ord_7Kp3Vb
+                party_key: cus_8Fq2K1nLbZ
+                amount: "138.00"
+                currency: USD
+                status: captured
+                card_last4: "4417"
+                authorized_at: "2031-03-02T14:19:53Z"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Short-lived JWT access token issued by the NovaCart identity provider. Capture and refund require a
+        back-office scope; shoppers may only read payments belonging to their own orders.
+  parameters:
+    PaymentIdParam:
+      name: paymentId
+      in: path
+      required: true
+      description: Identifier of the payment, for example `pay_2Jd6Lw`.
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: The request payload failed validation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: https://docs.novacart.example/problems/invalid-request
+            title: Invalid request
+            status: 400
+            detail: The field 'amount' must be a decimal string with at most two fractional digits.
+            instance: /payments/authorize
+    Unauthorized:
+      description: The bearer token is missing, expired or lacks the scope for this payment.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: https://docs.novacart.example/problems/unauthorized
+            title: Unauthorized
+            status: 401
+            detail: A valid bearer token with payments scope is required.
+            instance: /payments/pay_2Jd6Lw
+    NotFound:
+      description: No payment exists for the supplied identifier.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: https://docs.novacart.example/problems/payment-not-found
+            title: Payment not found
+            status: 404
+            detail: No payment was found for identifier pay_000000.
+            instance: /payments/pay_000000
+  schemas:
+    Payment:
+      type: object
+      description: >-
+        A payment against a single order, tracked from authorization hold through capture and any refunds.
+        Exactly one payment record exists per order under normal flow.
+      required: [payment_id, order_id, party_key, amount, currency, status]
+      properties:
+        payment_id:
+          type: string
+          description: Identifier of the payment record, quoted on receipts and in finance reconciliation.
+          example: pay_2Jd6Lw
+        order_id:
+          type: string
+          description: Identifier of the order this payment settles, as issued by the Order API.
+          example: ord_7Kp3Vb
+        party_key:
+          type: string
+          description: >-
+            Identifier of the paying shopper. This is the same concept the Customer API calls `customer_id`
+            and the Order API calls `cust_no`, under the Payment domain's own naming convention.
+          example: cus_8Fq2K1nLbZ
+        amount:
+          type: string
+          format: decimal
+          description: >-
+            Monetary amount held or captured, carried as an exact decimal string. The Order API models the
+            equivalent order total as a JSON number instead.
+          example: "138.00"
+        currency:
+          type: string
+          description: ISO 4217 currency code the amount is denominated in.
+          example: USD
+        status:
+          type: string
+          description: Lifecycle state of the payment as it moves from hold through settlement.
+          enum: [authorized, captured, partially_refunded, refunded, voided, declined]
+          example: captured
+        card_last4:
+          type: string
+          x-api-galaxy-sensitive: true
+          description: >-
+            Last four digits of the card used, retained only so the shopper can recognise the instrument on
+            a receipt. Treated as sensitive cardholder data and never logged.
+          example: "4417"
+        authorized_at:
+          type: string
+          format: date-time
+          description: Moment the original authorization hold was granted by the issuer, in UTC.
+          example: "2031-03-02T14:19:53Z"
+    AuthorizePaymentRequest:
+      type: object
+      description: Instruction to place an authorization hold on a shopper's payment instrument.
+      required: [order_id, party_key, amount, currency, payment_method_token]
+      properties:
+        order_id:
+          type: string
+          description: Identifier of the order the hold is being taken for.
+          example: ord_7Kp3Vb
+        party_key:
+          type: string
+          description: Shopper identifier of the paying party, equivalent to the order's `cust_no`.
+          example: cus_8Fq2K1nLbZ
+        amount:
+          type: string
+          format: decimal
+          description: Exact decimal string amount to hold, which must equal the order total.
+          example: "138.00"
+        currency:
+          type: string
+          description: ISO 4217 currency code the hold should be taken in.
+          example: USD
+        payment_method_token:
+          type: string
+          description: Vaulted instrument token produced by the hosted card field; never a raw card number.
+          example: pmt_tok_9Zx4Ke
+    RefundRequest:
+      type: object
+      description: Instruction to return some or all of a captured amount to the shopper.
+      required: [amount]
+      properties:
+        amount:
+          type: string
+          format: decimal
+          description: Exact decimal string amount to return, never more than the remaining captured balance.
+          example: "24.50"
+        reason:
+          type: string
+          description: Controlled vocabulary code explaining why the refund is being issued.
+          enum: [item_returned, order_cancelled, goodwill, duplicate_charge]
+          example: item_returned
+        note:
+          type: string
+          description: Free-text note from the agent, stored with the refund for audit.
+          example: Shopper returned one stoneware mug.
+    ProblemResponse:
+      type: object
+      description: >-
+        RFC 7807 style problem document used across the Payment domain, matching Cart, Order and Shipping but
+        differing from the `Error` object used by Customer, Catalog and Inventory.
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          description: Absolute URI identifying the problem class, resolvable to human documentation.
+          example: https://docs.novacart.example/problems/payment-declined
+        title:
+          type: string
+          description: Short, human-readable summary of the problem type.
+          example: Payment declined
+        status:
+          type: integer
+          description: HTTP status code the origin server generated for this occurrence.
+          example: 402
+        detail:
+          type: string
+          description: Human-readable explanation specific to this particular occurrence.
+          example: The issuer declined authorization for 138.00 USD.
+        instance:
+          type: string
+          description: URI reference identifying the specific occurrence of the problem.
+          example: /payments/authorize

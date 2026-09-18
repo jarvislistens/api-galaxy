@@ -1,0 +1,260 @@
+[
+  {
+    "id": "journey:register-customer",
+    "name": "Register Customer",
+    "description": "A new shopper opens a NovaCart account, is issued the canonical customer_id that the rest of the estate keys on, and saves a delivery address for later checkouts.",
+    "steps": [
+      {
+        "order": 1,
+        "service": "customer-api",
+        "operationId": "createCustomer",
+        "method": "post",
+        "path": "/customers",
+        "narration": "The shopper submits their email, name and phone number, and NovaCart issues them a customer_id."
+      },
+      {
+        "order": 2,
+        "service": "customer-api",
+        "operationId": "getCustomer",
+        "method": "get",
+        "path": "/customers/{customerId}",
+        "narration": "The storefront reads the freshly created profile back to confirm the account is live and unblocked."
+      },
+      {
+        "order": 3,
+        "service": "customer-api",
+        "operationId": "listCustomerAddresses",
+        "method": "get",
+        "path": "/customers/{customerId}/addresses",
+        "narration": "The account page lists the shopper's saved addresses so they can pick a default delivery destination."
+      }
+    ]
+  },
+  {
+    "id": "journey:search-and-add-to-cart",
+    "name": "Search and Add Product to Cart",
+    "description": "A shopper searches the catalogue, opens a product, opens a basket and drops the item in at the price they were shown.",
+    "steps": [
+      {
+        "order": 1,
+        "service": "catalog-api",
+        "operationId": "searchProducts",
+        "method": "get",
+        "path": "/search",
+        "narration": "The shopper types a keyword and the catalogue returns a relevance-ranked page of matching products."
+      },
+      {
+        "order": 2,
+        "service": "catalog-api",
+        "operationId": "getProduct",
+        "method": "get",
+        "path": "/products/{productId}",
+        "narration": "They click a result and the full product record loads with its price, brand and specification table."
+      },
+      {
+        "order": 3,
+        "service": "cart-api",
+        "operationId": "createCart",
+        "method": "post",
+        "path": "/carts",
+        "narration": "Because this is their first item of the session, an empty basket is opened against their customer_id."
+      },
+      {
+        "order": 4,
+        "service": "cart-api",
+        "operationId": "addCartItem",
+        "method": "post",
+        "path": "/carts/{cartId}/items",
+        "narration": "The product is added as a basket line and its unit price is snapshotted from the catalogue."
+      },
+      {
+        "order": 5,
+        "service": "cart-api",
+        "operationId": "getCart",
+        "method": "get",
+        "path": "/carts/{cartId}",
+        "narration": "The basket drawer re-renders with the new line and the recalculated subtotal."
+      }
+    ]
+  },
+  {
+    "id": "journey:place-order",
+    "name": "Place Order",
+    "description": "The checkout critical path. The basket is read, the shopper is validated, stock is held, the card is authorized and the order is written to the order book. This is where the customer_id to cust_no to party_key alias chain crosses three services.",
+    "steps": [
+      {
+        "order": 1,
+        "service": "cart-api",
+        "operationId": "getCart",
+        "method": "get",
+        "path": "/carts/{cartId}",
+        "narration": "Checkout re-reads the basket so the order can freeze the exact lines and subtotal the shopper saw."
+      },
+      {
+        "order": 2,
+        "service": "customer-api",
+        "operationId": "getCustomer",
+        "method": "get",
+        "path": "/customers/{customerId}",
+        "narration": "The shopper profile is fetched to confirm the account exists and has not been blocked for fraud."
+      },
+      {
+        "order": 3,
+        "service": "order-api",
+        "operationId": "placeOrder",
+        "method": "post",
+        "path": "/orders",
+        "narration": "The order is submitted with the basket id and the shopper, who is named cust_no once the request crosses into the Order domain."
+      },
+      {
+        "order": 4,
+        "service": "inventory-api",
+        "operationId": "reserveInventory",
+        "method": "post",
+        "path": "/reservations",
+        "narration": "A short-lived soft hold is placed on every SKU on the order so the units cannot be sold twice."
+      },
+      {
+        "order": 5,
+        "service": "payment-api",
+        "operationId": "authorizePayment",
+        "method": "post",
+        "path": "/payments/authorize",
+        "narration": "The card is authorized for the order total, with the same shopper now travelling as party_key and the money as a decimal string."
+      },
+      {
+        "order": 6,
+        "service": "order-api",
+        "operationId": "getOrder",
+        "method": "get",
+        "path": "/orders/{orderId}",
+        "narration": "The confirmation page reads the newly written order back to show the shopper what they just bought."
+      }
+    ]
+  },
+  {
+    "id": "journey:complete-payment",
+    "name": "Complete Payment",
+    "description": "The authorization hold taken at placement is turned into settled money once the order is confirmed as fulfillable.",
+    "steps": [
+      {
+        "order": 1,
+        "service": "order-api",
+        "operationId": "getOrder",
+        "method": "get",
+        "path": "/orders/{orderId}",
+        "narration": "The settlement worker reads the order to confirm it is still live and to recover the amount payable."
+      },
+      {
+        "order": 2,
+        "service": "payment-api",
+        "operationId": "capturePayment",
+        "method": "post",
+        "path": "/payments/{paymentId}/capture",
+        "narration": "The existing hold is converted into a settled charge for the order total."
+      },
+      {
+        "order": 3,
+        "service": "payment-api",
+        "operationId": "getPayment",
+        "method": "get",
+        "path": "/payments/{paymentId}",
+        "narration": "The payment record is read back so the receipt can show the captured amount and the masked card digits."
+      }
+    ]
+  },
+  {
+    "id": "journey:reserve-inventory",
+    "name": "Reserve Inventory",
+    "description": "The stock-protection loop: check what is on hand, hold it for an order, then either commit it to a pick or release it back.",
+    "steps": [
+      {
+        "order": 1,
+        "service": "inventory-api",
+        "operationId": "getInventory",
+        "method": "get",
+        "path": "/inventory/{sku}",
+        "narration": "The current stock position for the SKU is read across the warehouse network."
+      },
+      {
+        "order": 2,
+        "service": "inventory-api",
+        "operationId": "reserveInventory",
+        "method": "post",
+        "path": "/reservations",
+        "narration": "A soft hold is taken for the order so the units stop being sellable to anyone else."
+      },
+      {
+        "order": 3,
+        "service": "order-api",
+        "operationId": "getOrder",
+        "method": "get",
+        "path": "/orders/{orderId}",
+        "narration": "Before committing, Inventory reads the order back to confirm it has not been cancelled in the meantime."
+      },
+      {
+        "order": 4,
+        "service": "inventory-api",
+        "operationId": "commitReservation",
+        "method": "post",
+        "path": "/reservations/{reservationId}/commit",
+        "narration": "The hold becomes a firm allocation and available stock is permanently decremented."
+      },
+      {
+        "order": 5,
+        "service": "inventory-api",
+        "operationId": "listReservations",
+        "method": "get",
+        "path": "/reservations",
+        "narration": "The operations dashboard lists the order's reservations to confirm every line is committed."
+      }
+    ]
+  },
+  {
+    "id": "journey:create-shipment-and-track",
+    "name": "Create Shipment and Track Delivery",
+    "description": "A paid order is dispatched: stock is committed, a carrier is booked, and the parcel is followed until it lands on the doorstep.",
+    "steps": [
+      {
+        "order": 1,
+        "service": "order-api",
+        "operationId": "getOrder",
+        "method": "get",
+        "path": "/orders/{orderId}",
+        "narration": "Fulfilment reads the order for its lines and the address the parcel has to reach."
+      },
+      {
+        "order": 2,
+        "service": "inventory-api",
+        "operationId": "commitReservation",
+        "method": "post",
+        "path": "/reservations/{reservationId}/commit",
+        "narration": "The soft hold is turned into a firm allocation so the warehouse is allowed to pick the goods."
+      },
+      {
+        "order": 3,
+        "service": "shipping-api",
+        "operationId": "createShipment",
+        "method": "post",
+        "path": "/shipments",
+        "narration": "A parcel is booked with a carrier and a tracking number is issued for the shopper."
+      },
+      {
+        "order": 4,
+        "service": "shipping-api",
+        "operationId": "getShipmentTracking",
+        "method": "get",
+        "path": "/shipments/{shipmentId}/tracking",
+        "narration": "The where-is-my-order timeline reads every carrier scan from label creation through to delivery."
+      },
+      {
+        "order": 5,
+        "service": "shipping-api",
+        "operationId": "getShipment",
+        "method": "get",
+        "path": "/shipments/{shipmentId}",
+        "narration": "The order detail page reads the shipment for its final status and estimated delivery date."
+      }
+    ]
+  }
+]

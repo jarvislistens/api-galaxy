@@ -1,0 +1,56 @@
+apiVersion: api-galaxy/v1
+kind: EstateManifest
+metadata:
+  name: NovaCart
+  description: >-
+    A wholly fictional seven-service e-commerce API estate used as API Galaxy's bundled demo. It spans
+    identity, catalogue, basket, order, payment, stock and delivery, and carries nine deliberate design
+    defects so the graph, risk rules and AI enrichment all have something real to find.
+  version: "1.0.0"
+  vendor: API Galaxy Samples
+  tags:
+    - demo
+    - ecommerce
+    - fictional
+spec:
+  baseUrlTemplate: https://api.novacart.example/{service}/v1
+  services:
+    - name: customer-api
+      domain: Customer
+      file: customer-api.yaml
+      description: Shopper identity, contact details, loyalty tier and saved addresses.
+    - name: catalog-api
+      domain: Catalog
+      file: catalog-api.yaml
+      description: Published product records, the category tree and keyword search.
+    - name: cart-api
+      domain: Cart
+      file: cart-api.yaml
+      description: The in-progress basket and the deprecated handover into checkout.
+    - name: order-api
+      domain: Order
+      file: order-api.yaml
+      description: The order book and the placement, retrieval and cancellation of orders.
+    - name: payment-api
+      domain: Payment
+      file: payment-api.yaml
+      description: Authorization, capture and refund of money against an order.
+    - name: inventory-api
+      domain: Inventory
+      file: inventory-api.yaml
+      description: Warehouse stock positions and the soft-reservation ledger.
+    - name: shipping-api
+      domain: Shipping
+      file: shipping-api.yaml
+      description: Carrier bookings, tracking numbers and parcel scan history.
+  companions:
+    expectedJourneys: expected-journeys.json
+    expectedRisks: expected-risks.json
+    expectedOntology: expected-ontology.json
+    postmanCollection: postman_collection.json
+    readme: README.md
+    demoScript: demo-script.md
+  extensions:
+    dependencyExtension: x-api-galaxy-depends-on
+    domainExtension: x-api-galaxy-domain
+    sensitiveExtension: x-api-galaxy-sensitive

@@ -1,0 +1,415 @@
+{
+  "estate": "NovaCart",
+  "version": "1.0.0",
+  "description": "Reference answer for the NovaCart demo estate. API Galaxy's AI enrichment pass is scored against this file: the domains, business entities, capabilities and relationships below are what a correct semantic read of the seven specs should produce.",
+  "domains": [
+    {
+      "id": "domain:customer",
+      "name": "Customer",
+      "description": "Owns shopper identity, contact details, loyalty standing and the saved address book.",
+      "services": ["customer-api"]
+    },
+    {
+      "id": "domain:catalog",
+      "name": "Catalog",
+      "description": "Owns the published product assortment, the merchandising category tree and keyword search.",
+      "services": ["catalog-api"]
+    },
+    {
+      "id": "domain:cart",
+      "name": "Cart",
+      "description": "Owns the shopper's in-progress basket and the handover point into checkout.",
+      "services": ["cart-api"]
+    },
+    {
+      "id": "domain:order",
+      "name": "Order",
+      "description": "Owns the order book: the immutable commercial contract created when a basket is accepted.",
+      "services": ["order-api"]
+    },
+    {
+      "id": "domain:payment",
+      "name": "Payment",
+      "description": "Owns money movement against an order, from authorization hold through capture and refunds.",
+      "services": ["payment-api"]
+    },
+    {
+      "id": "domain:inventory",
+      "name": "Inventory",
+      "description": "Owns warehouse stock positions and the soft-reservation ledger that protects them.",
+      "services": ["inventory-api"]
+    },
+    {
+      "id": "domain:shipping",
+      "name": "Shipping",
+      "description": "Owns carrier bookings, tracking numbers and the parcel scan history shown to shoppers.",
+      "services": ["shipping-api"]
+    }
+  ],
+  "business_entities": [
+    {
+      "id": "entity:customer",
+      "name": "Customer",
+      "description": "A person with a NovaCart account. The single most aliased concept in the estate: it changes name at every service boundary on the checkout path.",
+      "owning_domain": "domain:customer",
+      "aliases": ["customer_id", "cust_no", "party_key"],
+      "represented_by": [
+        "schema:customer-api:Customer",
+        "schema:customer-api:CustomerSummary",
+        "schema:customer-api:CreateCustomerRequest",
+        "field:cart-api:Cart.customer_id",
+        "field:order-api:Order.cust_no",
+        "field:order-api:PlaceOrderRequest.cust_no",
+        "field:payment-api:Payment.party_key",
+        "field:payment-api:AuthorizePaymentRequest.party_key"
+      ],
+      "pii": true
+    },
+    {
+      "id": "entity:address",
+      "name": "Address",
+      "description": "A postal location a parcel can be sent to. Customer models it as a first-class schema; Order copies it inline onto the order; Shipping keeps its own structurally identical destination object with no declared link.",
+      "owning_domain": "domain:customer",
+      "aliases": ["address", "shipping_address", "destination"],
+      "represented_by": [
+        "schema:customer-api:Address",
+        "field:order-api:Order.shipping_address",
+        "field:shipping-api:Shipment.destination",
+        "field:shipping-api:CreateShipmentRequest.destination"
+      ],
+      "pii": true
+    },
+    {
+      "id": "entity:product",
+      "name": "Product",
+      "description": "A merchandised article offered for sale, identified by the catalogue surrogate key product_id.",
+      "owning_domain": "domain:catalog",
+      "aliases": ["product_id"],
+      "represented_by": [
+        "schema:catalog-api:Product",
+        "field:cart-api:CartItem.product_id",
+        "field:order-api:OrderLine.product_id"
+      ],
+      "pii": false
+    },
+    {
+      "id": "entity:sku",
+      "name": "Stock Keeping Unit",
+      "description": "The physical article that is actually picked, packed and counted. The only identifier shared verbatim by Catalog, Cart, Order and Inventory.",
+      "owning_domain": "domain:catalog",
+      "aliases": ["sku"],
+      "represented_by": [
+        "field:catalog-api:Product.sku",
+        "field:cart-api:CartItem.sku",
+        "field:order-api:OrderLine.sku",
+        "field:inventory-api:InventoryItem.sku",
+        "field:inventory-api:Reservation.sku"
+      ],
+      "pii": false
+    },
+    {
+      "id": "entity:cart",
+      "name": "Cart",
+      "description": "A mutable working basket held between browsing and ordering, owned by exactly one customer.",
+      "owning_domain": "domain:cart",
+      "aliases": ["cart_id"],
+      "represented_by": [
+        "schema:cart-api:Cart",
+        "schema:cart-api:CartItem",
+        "field:order-api:Order.cart_id",
+        "field:order-api:PlaceOrderRequest.cart_id"
+      ],
+      "pii": false
+    },
+    {
+      "id": "entity:order",
+      "name": "Order",
+      "description": "The frozen commercial contract created when a basket is accepted. Payment, Inventory and Shipping all attach to it by order_id.",
+      "owning_domain": "domain:order",
+      "aliases": ["order_id"],
+      "represented_by": [
+        "schema:order-api:Order",
+        "schema:order-api:OrderLine",
+        "field:payment-api:Payment.order_id",
+        "field:inventory-api:Reservation.order_id",
+        "field:shipping-api:Shipment.order_id"
+      ],
+      "pii": false
+    },
+    {
+      "id": "entity:payment",
+      "name": "Payment",
+      "description": "The money taken for one order, tracked from authorization hold through capture and refunds.",
+      "owning_domain": "domain:payment",
+      "aliases": ["payment_id"],
+      "represented_by": [
+        "schema:payment-api:Payment",
+        "schema:payment-api:AuthorizePaymentRequest",
+        "schema:payment-api:RefundRequest"
+      ],
+      "pii": true
+    },
+    {
+      "id": "entity:money",
+      "name": "Monetary Amount",
+      "description": "A currency-denominated value. Modelled inconsistently across the estate: a JSON number in Cart and Order, an exact decimal string in Payment.",
+      "owning_domain": "domain:order",
+      "aliases": ["subtotal", "unit_price", "line_total", "total_amount", "amount"],
+      "represented_by": [
+        "field:cart-api:Cart.subtotal",
+        "field:order-api:Order.total_amount",
+        "field:payment-api:Payment.amount"
+      ],
+      "pii": false
+    },
+    {
+      "id": "entity:reservation",
+      "name": "Inventory Reservation",
+      "description": "A short-lived soft hold on stock taken for an order, which either commits to a pick or expires.",
+      "owning_domain": "domain:inventory",
+      "aliases": ["reservation_id"],
+      "represented_by": [
+        "schema:inventory-api:Reservation",
+        "schema:inventory-api:ReserveRequest"
+      ],
+      "pii": false
+    },
+    {
+      "id": "entity:shipment",
+      "name": "Shipment",
+      "description": "A parcel booked with a carrier against an order, followed by a stream of tracking scans.",
+      "owning_domain": "domain:shipping",
+      "aliases": ["shipment_id", "tracking_number"],
+      "represented_by": [
+        "schema:shipping-api:Shipment",
+        "schema:shipping-api:TrackingEvent",
+        "schema:shipping-api:CreateShipmentRequest"
+      ],
+      "pii": false
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "capability:manage-identity",
+      "name": "Manage Shopper Identity",
+      "domain": "domain:customer",
+      "description": "Register shoppers, amend their profiles and serve their saved addresses to the rest of the estate.",
+      "operations": [
+        "customer-api:createCustomer",
+        "customer-api:getCustomer",
+        "customer-api:updateCustomer",
+        "customer-api:listCustomers",
+        "customer-api:listCustomerAddresses",
+        "customer-api:getPublicCustomerSummary"
+      ]
+    },
+    {
+      "id": "capability:discover-products",
+      "name": "Discover Products",
+      "domain": "domain:catalog",
+      "description": "Let a shopper browse, search and inspect the published assortment before they commit to buying.",
+      "operations": [
+        "catalog-api:listProducts",
+        "catalog-api:getProduct",
+        "catalog-api:searchProducts",
+        "catalog-api:listCategories"
+      ]
+    },
+    {
+      "id": "capability:build-basket",
+      "name": "Build a Basket",
+      "domain": "domain:cart",
+      "description": "Accumulate intended purchases at a stable price and keep a running subtotal until checkout.",
+      "operations": [
+        "cart-api:createCart",
+        "cart-api:getCart",
+        "cart-api:addCartItem",
+        "cart-api:removeCartItem"
+      ]
+    },
+    {
+      "id": "capability:checkout",
+      "name": "Check Out",
+      "domain": "domain:order",
+      "description": "Turn a basket into a binding order by validating the shopper, holding stock and authorizing money, all in one gated step.",
+      "operations": [
+        "cart-api:checkoutCart",
+        "order-api:placeOrder"
+      ]
+    },
+    {
+      "id": "capability:manage-orders",
+      "name": "Manage Orders",
+      "domain": "domain:order",
+      "description": "Read, list and cancel orders across the shopper portal and the back-office support console.",
+      "operations": [
+        "order-api:getOrder",
+        "order-api:listOrders",
+        "order-api:cancelOrder"
+      ]
+    },
+    {
+      "id": "capability:take-payment",
+      "name": "Take Payment",
+      "domain": "domain:payment",
+      "description": "Hold, settle and return money against an order while keeping an auditable payment record.",
+      "operations": [
+        "payment-api:authorizePayment",
+        "payment-api:capturePayment",
+        "payment-api:refundPayment",
+        "payment-api:getPayment"
+      ]
+    },
+    {
+      "id": "capability:protect-stock",
+      "name": "Protect Stock",
+      "domain": "domain:inventory",
+      "description": "Report what is on hand and stop two shoppers from buying the same last unit, using expiring soft holds.",
+      "operations": [
+        "inventory-api:getInventory",
+        "inventory-api:reserveInventory",
+        "inventory-api:commitReservation",
+        "inventory-api:cancelReservation",
+        "inventory-api:listReservations"
+      ]
+    },
+    {
+      "id": "capability:deliver-parcels",
+      "name": "Deliver Parcels",
+      "domain": "domain:shipping",
+      "description": "Book carriers, issue tracking numbers and narrate a parcel's journey until it is delivered.",
+      "operations": [
+        "shipping-api:createShipment",
+        "shipping-api:getShipment",
+        "shipping-api:getShipmentTracking",
+        "shipping-api:listShipments"
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "source": "order-api:placeOrder",
+      "target": "customer-api:getCustomer",
+      "type": "DEPENDS_ON",
+      "kind": "explicit",
+      "evidence": "x-api-galaxy-depends-on",
+      "reason": "Validates the customer exists and is not blocked before the order is accepted."
+    },
+    {
+      "source": "order-api:placeOrder",
+      "target": "cart-api:getCart",
+      "type": "DEPENDS_ON",
+      "kind": "explicit",
+      "evidence": "x-api-galaxy-depends-on",
+      "reason": "Re-reads the basket so the order freezes the exact lines and subtotal the shopper saw."
+    },
+    {
+      "source": "order-api:placeOrder",
+      "target": "inventory-api:reserveInventory",
+      "type": "DEPENDS_ON",
+      "kind": "explicit",
+      "evidence": "x-api-galaxy-depends-on",
+      "reason": "Holds stock for every SKU on the basket so the order cannot be placed against thin air."
+    },
+    {
+      "source": "order-api:placeOrder",
+      "target": "payment-api:authorizePayment",
+      "type": "DEPENDS_ON",
+      "kind": "explicit",
+      "evidence": "x-api-galaxy-depends-on",
+      "reason": "Authorizes the payment instrument for the order total before the order is written."
+    },
+    {
+      "source": "cart-api:checkoutCart",
+      "target": "order-api:placeOrder",
+      "type": "DEPENDS_ON",
+      "kind": "explicit",
+      "evidence": "x-api-galaxy-depends-on",
+      "reason": "Delegates basket-to-order conversion to the Order domain and returns the resulting order."
+    },
+    {
+      "source": "shipping-api:createShipment",
+      "target": "order-api:getOrder",
+      "type": "DEPENDS_ON",
+      "kind": "explicit",
+      "evidence": "x-api-galaxy-depends-on",
+      "reason": "Reads the order lines and delivery destination that the parcel must be booked against."
+    },
+    {
+      "source": "shipping-api:createShipment",
+      "target": "inventory-api:commitReservation",
+      "type": "DEPENDS_ON",
+      "kind": "explicit",
+      "evidence": "x-api-galaxy-depends-on",
+      "reason": "Turns the soft stock hold into a firm allocation so the warehouse can pick the goods."
+    },
+    {
+      "source": "inventory-api:commitReservation",
+      "target": "order-api:getOrder",
+      "type": "DEPENDS_ON",
+      "kind": "explicit",
+      "evidence": "x-api-galaxy-depends-on",
+      "reason": "Confirms the order is still live and its lines still match the held quantities."
+    },
+    {
+      "source": "payment-api:capturePayment",
+      "target": "order-api:getOrder",
+      "type": "DEPENDS_ON",
+      "kind": "explicit",
+      "evidence": "x-api-galaxy-depends-on",
+      "reason": "Confirms the order is still live and the capture amount does not exceed the order total."
+    },
+    {
+      "source": "shipping-api:Shipment.destination",
+      "target": "customer-api:Address",
+      "type": "SAME_AS",
+      "kind": "inferable",
+      "evidence": "semantic",
+      "reason": "Structurally and semantically identical postal address with no shared schema, no $ref and no declared dependency. Only a semantic reader can join these two."
+    },
+    {
+      "source": "order-api:Order.shipping_address",
+      "target": "customer-api:Address",
+      "type": "SAME_AS",
+      "kind": "inferable",
+      "evidence": "semantic",
+      "reason": "The order copies the shopper's saved address inline at placement time rather than referencing the Customer schema."
+    },
+    {
+      "source": "order-api:Order.cust_no",
+      "target": "customer-api:Customer.customer_id",
+      "type": "ALIAS_OF",
+      "kind": "inferable",
+      "evidence": "semantic",
+      "reason": "The Order domain's legacy name for the canonical shopper identifier."
+    },
+    {
+      "source": "payment-api:Payment.party_key",
+      "target": "customer-api:Customer.customer_id",
+      "type": "ALIAS_OF",
+      "kind": "inferable",
+      "evidence": "semantic",
+      "reason": "The Payment domain's own name for the canonical shopper identifier."
+    },
+    {
+      "source": "cart-api:Cart.customer_id",
+      "target": "customer-api:Customer.customer_id",
+      "type": "ALIAS_OF",
+      "kind": "inferable",
+      "evidence": "semantic",
+      "reason": "Cart uses the canonical name verbatim, which is what makes the Order and Payment renames visible as drift."
+    },
+    {
+      "source": "payment-api:Payment.amount",
+      "target": "order-api:Order.total_amount",
+      "type": "SAME_AS",
+      "kind": "inferable",
+      "evidence": "semantic",
+      "reason": "The same money value carried as a decimal string on one side of the boundary and a JSON number on the other."
+    }
+  ],
+  "notes": {
+    "explicit_vs_inferable": "Explicit relationships are the nine x-api-galaxy-depends-on edges declared in the specs and should be recovered by static parsing alone. Inferable relationships carry kind 'inferable' and exist only in the prose and field naming; recovering them is the job of the AI enrichment pass and is what this file scores.",
+    "cycle": "order-api:placeOrder to inventory-api:reserveInventory combined with inventory-api:commitReservation to order-api:getOrder forms the intended Order and Inventory cycle."
+  }
+}
