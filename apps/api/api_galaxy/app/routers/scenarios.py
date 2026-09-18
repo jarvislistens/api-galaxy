@@ -79,19 +79,11 @@ def _impact_payload(live, scenario: Scenario) -> dict[str, Any]:
     return {
         "scenario": scenario.model_dump(mode="json"),
         "impact": impact.model_dump(mode="json"),
-        "shockwave": [
-            {
-                "node_id": item.node_id,
-                "label": item.node_label,
-                "type": item.node_type,
-                "status": item.status.value,
-                "distance": item.distance,
-                "reason": item.reason,
-                "chain": item.chain,
-                "chain_labels": item.chain_labels,
-            }
-            for item in impact.items
-        ],
+        # The same shape as `impact.items`, deliberately. An earlier version renamed
+        # `node_label`/`node_type` to `label`/`type` here, which meant one concept had two
+        # field names on one response — the client typed both as ImpactItem, compiled
+        # cleanly, and rendered `undefined`.
+        "shockwave": [item.model_dump(mode="json") for item in impact.items],
         "journeys": [v.model_dump(mode="json") for v in impact.affected_journeys],
         "all_journeys": [
             v.model_dump(mode="json") for v in validate_all(live.analysed.journeys, scenario_graph)

@@ -71,11 +71,21 @@ const LAYOUTS: Record<LayoutName, any> = {
     quality: "default",
     animate: true,
     animationDuration: 420,
-    randomize: false,
-    nodeSeparation: 92,
-    idealEdgeLength: 92,
-    nodeRepulsion: 6200,
-    gravity: 0.24,
+    // `randomize: true` is load-bearing, not a default left alone.
+    //
+    // With it false, fcose seeds from existing positions — and since every element is
+    // added fresh they all start at the same point, so a *connected* graph has no
+    // asymmetry to resolve and the whole estate collapses into a diagonal line. That was
+    // survivable only while journeys were disconnected islands and `packComponents` laid
+    // them out separately, which masked it. Exports do not depend on this: `diagrams.py`
+    // has its own deterministic layered layout.
+    randomize: true,
+    // Labels sit below their node and can be 110px wide, so separation has to be
+    // generous or the text overlaps and the graph becomes unreadable.
+    nodeSeparation: 115,
+    idealEdgeLength: 105,
+    nodeRepulsion: 7000,
+    gravity: 0.28,
     packComponents: true,
     // Deterministic: the same graph laid out twice must look the same.
     fit: true,

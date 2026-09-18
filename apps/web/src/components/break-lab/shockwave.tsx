@@ -7,9 +7,10 @@
  * because a printed report, a colour-blind reader and a screen reader all need the same
  * information the colour is giving.
  *
- * One shape note: `impact.items[]` calls its fields `node_label`/`node_type` while
- * `shockwave[]` calls them `label`/`type`. `normaliseItem` accepts either so the table does
- * not care which array it was handed.
+ * `normaliseItem` is a tolerant reader. The backend now emits one shape for both
+ * `impact.items[]` and `shockwave[]` (`node_label`/`node_type`), but it briefly emitted
+ * `label`/`type` for the latter — which type-checked and rendered `undefined`. Accepting
+ * either costs three lines and means this table cannot be broken that way again.
  */
 
 import { motion, useReducedMotion } from "framer-motion";

@@ -91,7 +91,7 @@ test-web: typecheck ## Web app type check and lint
 	@cd $(WEB_DIR) && npm run lint
 
 e2e: ## Playwright browser tests (needs both servers running)
-	@cd $(WEB_DIR) && npx playwright test
+	@npx playwright test
 
 check: lint typecheck test-api ## Everything CI would run, except the browser tests
 

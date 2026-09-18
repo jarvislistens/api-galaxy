@@ -53,7 +53,10 @@ const STATE_DASH: Record<string, string | undefined> = {
 };
 
 export function GraphLegend({ className }: { className?: string }) {
-  const [open, setOpen] = React.useState(true);
+  // Collapsed by default. Expanded it is ~460px tall, which covers a third of the canvas
+  // on a 900px-high screen — the legend has to be *available*, not in the way. The
+  // collapsed header still reads "Legend", so it is one click and always discoverable.
+  const [open, setOpen] = React.useState(false);
   const panelId = React.useId();
 
   return (
@@ -84,7 +87,7 @@ export function GraphLegend({ className }: { className?: string }) {
       <div
         id={panelId}
         hidden={!open}
-        className="max-h-[46vh] overflow-y-auto border-t border-[var(--color-line)] px-3 py-2.5"
+        className="max-h-[52vh] overflow-y-auto overscroll-contain border-t border-[var(--color-line)] px-3 py-2.5"
       >
         <Group title="Relationships">
           <ul className="space-y-1.5">

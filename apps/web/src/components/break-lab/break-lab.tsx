@@ -201,7 +201,10 @@ export function BreakLab({ projectId }: { projectId: string }) {
 
   /* ------------------------------------------------------------------ derived */
 
-  const scenarioList: Scenario[] = scenarios.data?.scenarios ?? [];
+  const scenarioList: Scenario[] = React.useMemo(
+    () => scenarios.data?.scenarios ?? [],
+    [scenarios.data],
+  );
   const activeScenario = impact.data?.scenario ?? scenarioList.find((s) => s.id === scenarioId) ?? null;
   const shockwave = React.useMemo(
     () => (impact.data?.shockwave ?? []).map(normaliseItem),

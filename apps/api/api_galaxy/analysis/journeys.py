@@ -291,6 +291,33 @@ def attach_journeys_to_graph(graph: KnowledgeGraph, journeys: list[Journey]) -> 
                     )
                 )
 
+        # A journey depends on every service it crosses.
+        #
+        # Without this the only path from a journey into the rest of the graph runs through
+        # its steps, which live one semantic-zoom level deeper — so at the services level a
+        # journey is an unconnected island, and the layout packs all six of them into an
+        # unreadable pile. It is also simply true, and it makes "what breaks this journey?"
+        # answerable in one hop instead of three.
+        for service_node_id in dict.fromkeys(
+            step.service_id for step in journey.steps if step.service_id
+        ):
+            if graph.get(service_node_id) is None:
+                continue
+            graph.add_edge(
+                GraphEdge(
+                    id=edge_id(EdgeType.DEPENDS_ON.value, journey.id, service_node_id),
+                    type=EdgeType.DEPENDS_ON,
+                    source=journey.id,
+                    target=service_node_id,
+                    label="crosses",
+                    acceptance=Acceptance.OBSERVED
+                    if journey.provenance.source_kind.is_fact
+                    else Acceptance.PROPOSED,
+                    provenance=journey.provenance,
+                    attrs={"derived_from_steps": True},
+                )
+            )
+
 
 # --------------------------------------------------------------------------------------
 # Validation

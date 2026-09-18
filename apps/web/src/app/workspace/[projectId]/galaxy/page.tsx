@@ -214,8 +214,50 @@ export default function Page() {
     setIncludeInferred(true);
   }, [setGraphSearch, setDomainFilter, setServiceFilter, setIncludeInferred]);
 
-  const onSelectNode = React.useCallback((nodeId: string | null) => select(nodeId), [select]);
+  // Whether the current selection was made by tapping the canvas. A tap already put the
+  // node under the pointer; moving the viewport underneath the user would be rude.
+  const fromCanvas = React.useRef(false);
+  const centredOn = React.useRef<string | null>(null);
+
+  const onSelectNode = React.useCallback(
+    (nodeId: string | null) => {
+      fromCanvas.current = nodeId !== null;
+      select(nodeId);
+    },
+    [select],
+  );
   const onSelectEdge = React.useCallback((edgeId: string) => selectEdge(edgeId), [selectEdge]);
+
+  /**
+   * A node can be selected before this graph exists — clicking a finding on the overview
+   * navigates here with the selection already made, and the canvas can only ring an
+   * element it already holds. So re-apply the selection once the data lands, and bring
+   * the node into view when the choice was made somewhere else. Landing on a 366-node
+   * graph with the answer off-screen is not an answer.
+   */
+  React.useEffect(() => {
+    const cameFromCanvas = fromCanvas.current;
+    fromCanvas.current = false;
+    if (!selectedNodeId || !nodes.length) return;
+    const core = canvasRef.current?.core();
+    if (!core || core.destroyed()) return;
+    const element = core.getElementById(selectedNodeId);
+    if (element.empty()) return;
+
+    core.nodes().unselect();
+    element.select();
+
+    if (cameFromCanvas || centredOn.current === selectedNodeId) return;
+    centredOn.current = selectedNodeId;
+    // The layout is still settling and ends in a fit, which would undo an early centre.
+    const centre = () => canvasRef.current?.center(selectedNodeId);
+    core.one("layoutstop", centre);
+    const timer = window.setTimeout(centre, 700);
+    return () => {
+      window.clearTimeout(timer);
+      core.off("layoutstop", centre);
+    };
+  }, [selectedNodeId, nodes]);
 
   // Switching back from the list view can leave the canvas sized from before a resize.
   React.useEffect(() => {

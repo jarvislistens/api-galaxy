@@ -115,7 +115,10 @@ export function Arena({ projectId }: { projectId: string }) {
     return map;
   }, [providers.data]);
 
-  const ready = (kind: string) => Boolean(health[kind]?.ready);
+  // Until health has actually come back, nothing is "not ready" — it is unknown. Showing a
+  // provider as unavailable before we have asked is a lie the reader has no way to check.
+  const known = providers.isSuccess;
+  const ready = (kind: string) => !known || Boolean(health[kind]?.ready);
 
   const pickMode = (next: ModeId) => {
     setMode(next);
@@ -226,7 +229,9 @@ export function Arena({ projectId }: { projectId: string }) {
                         {config.label}
                       </span>
                     </span>
-                    {disabled ? (
+                    {!known ? (
+                      <Badge tone="neutral">Checking…</Badge>
+                    ) : disabled ? (
                       <Badge tone="neutral">Not ready</Badge>
                     ) : active ? (
                       <Badge tone="accent">Selected</Badge>
@@ -300,7 +305,7 @@ export function Arena({ projectId }: { projectId: string }) {
               variant="primary"
               onClick={() => run.mutate()}
               loading={run.isPending}
-              disabled={blocked}
+              disabled={blocked || !known}
             >
               <Play size={14} aria-hidden />
               Run arena
