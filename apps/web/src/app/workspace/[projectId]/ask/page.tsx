@@ -58,10 +58,13 @@ export default function Page() {
     staleTime: 30_000,
   });
 
+  // Level 4 rather than 3: answers about aliases and conflicting definitions cite fields,
+  // which only exist at the deepest level. Measured on the demo estate this is 366 nodes,
+  // so the extra depth costs nothing and the alternative is an empty canvas.
   const graph = useQuery({
-    queryKey: ["graph-l3", projectId, scenarioId],
+    queryKey: ["graph-l4", projectId, scenarioId],
     queryFn: () =>
-      api.graph(projectId, { level: 3, max_nodes: 600, scenario: scenarioId ?? undefined }),
+      api.graph(projectId, { level: 4, max_nodes: 1400, scenario: scenarioId ?? undefined }),
     staleTime: 5 * 60 * 1000,
   });
 

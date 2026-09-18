@@ -10,7 +10,9 @@
  *   dotted edge → created or accepted by a person
  */
 
-import type { Stylesheet } from "cytoscape";
+// `StylesheetStyle` is the `{ selector, style }` form; `StylesheetCSS` is the `{ selector,
+// css }` form. Both exist, and picking the wrong one makes every rule below a type error.
+import type { StylesheetStyle } from "cytoscape";
 
 export const NODE_COLOUR: Record<string, string> = {
   Estate: "#c3cad6",
@@ -80,7 +82,7 @@ export const STATUS_COLOUR: Record<string, string> = {
   unaffected: "transparent",
 };
 
-export function buildStylesheet(): Stylesheet[] {
+export function buildStylesheet(): StylesheetStyle[] {
   return [
     {
       selector: "node",

@@ -18,6 +18,9 @@ import { cx } from "@/components/ui/primitives";
 
 const MAX_DOTS = 400;
 const THROTTLE_MS = 90;
+const MAP_W = 160;
+const MAP_H = 108;
+const ASPECT = MAP_W / MAP_H;
 
 interface Snapshot {
   dots: { x: number; y: number; c: string }[];
@@ -75,19 +78,17 @@ export function Minimap({
       });
     };
 
+    // A timer rather than an animation frame: requestAnimationFrame stops firing in a
+    // background tab and in headless rendering, and a minimap that silently stops being
+    // true is worse than one that updates a beat late.
     const schedule = () => {
       if (frame) return;
-      frame = window.requestAnimationFrame(() => {
+      const wait = Math.max(0, THROTTLE_MS - (performance.now() - last));
+      frame = window.setTimeout(() => {
         frame = 0;
-        const now = performance.now();
-        if (now - last < THROTTLE_MS) {
-          // Too soon; come back on a later frame rather than dropping the update.
-          window.setTimeout(schedule, THROTTLE_MS - (now - last));
-          return;
-        }
-        last = now;
+        last = performance.now();
         sample();
-      });
+      }, wait);
     };
 
     // The canvas creates its core on mount, so the ref can still be empty on this pass.
@@ -99,13 +100,19 @@ export function Minimap({
       window.clearInterval(attach);
       core.on("render", schedule);
       core.on("position add remove layoutstop", schedule);
-      schedule();
+      sample();
     }, 120);
+
+    // The layout animates for a few hundred milliseconds after the data lands, and a
+    // graph nobody is touching emits no events at all. A slow heartbeat keeps the map
+    // honest in both cases for a cost that does not register.
+    const heartbeat = window.setInterval(schedule, 1000);
 
     return () => {
       disposed = true;
       window.clearInterval(attach);
-      if (frame) window.cancelAnimationFrame(frame);
+      window.clearInterval(heartbeat);
+      if (frame) window.clearTimeout(frame);
       if (core && !core.destroyed()) {
         core.off("render", schedule);
         core.off("position add remove layoutstop", schedule);
@@ -113,13 +120,30 @@ export function Minimap({
     };
   }, [getCore, version]);
 
-  const pad = snapshot ? Math.max(snapshot.box.w, snapshot.box.h) * 0.06 + 8 : 0;
-  const viewBox = snapshot
-    ? `${snapshot.box.x1 - pad} ${snapshot.box.y1 - pad} ${snapshot.box.w + pad * 2} ${
-        snapshot.box.h + pad * 2
-      }`
-    : "0 0 100 100";
-  const unit = snapshot ? Math.max(snapshot.box.w, snapshot.box.h) / 130 : 1;
+  // The frame is the union of the graph and the current viewport, so zooming out never
+  // squeezes the estate into a corner and zooming in never pushes the viewport rectangle
+  // off the edge of the map.
+  const frame = React.useMemo(() => {
+    if (!snapshot) return null;
+    const { box, view } = snapshot;
+    const x1 = Math.min(box.x1, view.x1);
+    const y1 = Math.min(box.y1, view.y1);
+    const x2 = Math.max(box.x1 + box.w, view.x1 + view.w);
+    const y2 = Math.max(box.y1 + box.h, view.y1 + view.h);
+    const pad = Math.max(x2 - x1, y2 - y1, 1) * 0.05;
+    let w = Math.max(x2 - x1, 1) + pad * 2;
+    let h = Math.max(y2 - y1, 1) + pad * 2;
+    const cx = (x1 + x2) / 2;
+    const cy = (y1 + y2) / 2;
+    // Match the frame to the map's own aspect ratio, so the SVG fills it exactly and a
+    // click maps back to a model coordinate without having to undo any letterboxing.
+    if (w / h > ASPECT) h = w / ASPECT;
+    else w = h * ASPECT;
+    return { x: cx - w / 2, y: cy - h / 2, w, h };
+  }, [snapshot]);
+
+  const viewBox = frame ? `${frame.x} ${frame.y} ${frame.w} ${frame.h}` : "0 0 100 100";
+  const unit = frame ? Math.max(frame.w, frame.h) / 130 : 1;
 
   const centreOn = React.useCallback(
     (modelX: number, modelY: number) => {
@@ -140,14 +164,11 @@ export function Minimap({
   );
 
   const onClick = (event: React.MouseEvent<SVGSVGElement>) => {
-    if (!snapshot) return;
+    if (!frame) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const fx = (event.clientX - rect.left) / rect.width;
     const fy = (event.clientY - rect.top) / rect.height;
-    centreOn(
-      snapshot.box.x1 - pad + fx * (snapshot.box.w + pad * 2),
-      snapshot.box.y1 - pad + fy * (snapshot.box.h + pad * 2),
-    );
+    centreOn(frame.x + fx * frame.w, frame.y + fy * frame.h);
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -182,11 +203,14 @@ export function Minimap({
           {snapshot ? snapshot.total : 0}
         </span>
       </div>
-      <div className="relative h-[108px] w-[160px] border-t border-[var(--color-line)]">
+      <div
+        className="relative border-t border-[var(--color-line)]"
+        style={{ width: MAP_W, height: MAP_H }}
+      >
         {snapshot ? (
           <svg
             viewBox={viewBox}
-            preserveAspectRatio="xMidYMid meet"
+            preserveAspectRatio="none"
             className="h-full w-full cursor-crosshair"
             onClick={onClick}
             aria-hidden

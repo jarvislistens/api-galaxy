@@ -1,0 +1,223 @@
+{
+  "$defs": {
+    "Provenance": {
+      "description": "Why this object exists and how much you should trust it.",
+      "properties": {
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "explanation": {
+          "description": "Human-readable, one sentence, no jargon.",
+          "title": "Explanation",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "prompt_template_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Template Version"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "rule_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule Id"
+        },
+        "source_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source File"
+        },
+        "source_kind": {
+          "$ref": "#/$defs/SourceKind"
+        },
+        "source_pointer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Pointer"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_kind",
+        "explanation"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "RepairStatus": {
+      "enum": [
+        "proposed",
+        "accepted",
+        "rejected",
+        "applied"
+      ],
+      "title": "RepairStatus",
+      "type": "string"
+    },
+    "SourceKind": {
+      "description": "Where a fact came from. This is the fact-vs-inference boundary.",
+      "enum": [
+        "specification",
+        "deterministic_rule",
+        "bundled_analysis",
+        "ai_inference",
+        "user_edit",
+        "scenario"
+      ],
+      "title": "SourceKind",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "confidence": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Confidence"
+    },
+    "deterministic": {
+      "default": true,
+      "title": "Deterministic",
+      "type": "boolean"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "kind": {
+      "description": "e.g. 'add_alias_mapping', 'restore_field', 'version_endpoint'",
+      "title": "Kind",
+      "type": "string"
+    },
+    "migration_steps": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Migration Steps",
+      "type": "array"
+    },
+    "params": {
+      "additionalProperties": true,
+      "title": "Params",
+      "type": "object"
+    },
+    "patch": {
+      "description": "Unified-diff-style lines for the change summary.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Patch",
+      "type": "array"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    },
+    "rationale": {
+      "title": "Rationale",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/RepairStatus",
+      "default": "proposed"
+    },
+    "target_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Target Ids",
+      "type": "array"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "rationale",
+    "kind",
+    "provenance"
+  ],
+  "title": "Repair",
+  "type": "object"
+}

@@ -1,0 +1,52 @@
+# Optional convenience only.
+#
+# Docker is NOT required to run API Galaxy — `make setup && make demo` is the primary
+# path and the one the README documents first. This file exists for people who would
+# rather not install Python and Node locally.
+#
+#   docker compose up --build
+#   open http://localhost:3000
+#
+# Note: Ollama is deliberately not a service here. Running a model inside a container on
+# a laptop is slower and eats disk; point the API at the Ollama you already have on the
+# host instead, which is what `host.docker.internal` below does.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    ports:
+      - "8099:8099"
+    environment:
+      API_GALAXY_HOST: 0.0.0.0
+      API_GALAXY_PORT: "8099"
+      API_GALAXY_DATA_DIR: /data
+      API_GALAXY_OLLAMA_BASE_URL: http://host.docker.internal:11434
+      API_GALAXY_CORS_ORIGINS: '["http://localhost:3000"]'
+    volumes:
+      - api-galaxy-data:/data
+      - ./samples:/app/samples:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8099/api/v1/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:8099
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  api-galaxy-data:

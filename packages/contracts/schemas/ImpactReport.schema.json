@@ -1,0 +1,329 @@
+{
+  "$defs": {
+    "Change": {
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ChangeKind"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        },
+        "target_id": {
+          "description": "Node ID the change applies to.",
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "target_id"
+      ],
+      "title": "Change",
+      "type": "object"
+    },
+    "ChangeKind": {
+      "enum": [
+        "rename_field",
+        "remove_field",
+        "change_field_type",
+        "set_field_required",
+        "remove_endpoint",
+        "deprecate_endpoint",
+        "change_response",
+        "move_entity_domain",
+        "service_unavailable",
+        "service_latency",
+        "introduce_alias",
+        "resolve_alias"
+      ],
+      "title": "ChangeKind",
+      "type": "string"
+    },
+    "Evidence": {
+      "description": "A pointer back into the source material that justifies a node, edge or answer.",
+      "properties": {
+        "excerpt": {
+          "default": "",
+          "description": "Short, escaped quote from the source.",
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "pointer": {
+          "description": "RFC 6901 JSON Pointer into the normalized spec.",
+          "title": "Pointer",
+          "type": "string"
+        },
+        "source_file": {
+          "title": "Source File",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source_file",
+        "pointer"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "ImpactItem": {
+      "properties": {
+        "chain": {
+          "description": "Node IDs from the changed node to this one. Always `distance + 1` long.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Chain",
+          "type": "array"
+        },
+        "chain_labels": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Chain Labels",
+          "type": "array"
+        },
+        "distance": {
+          "description": "Hops from the changed node. 0 = the change itself.",
+          "title": "Distance",
+          "type": "integer"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "node_label": {
+          "title": "Node Label",
+          "type": "string"
+        },
+        "node_type": {
+          "title": "Node Type",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ImpactStatus"
+        }
+      },
+      "required": [
+        "node_id",
+        "node_label",
+        "node_type",
+        "status",
+        "distance",
+        "reason"
+      ],
+      "title": "ImpactItem",
+      "type": "object"
+    },
+    "ImpactStatus": {
+      "enum": [
+        "broken",
+        "degraded",
+        "potentially_affected",
+        "unaffected"
+      ],
+      "title": "ImpactStatus",
+      "type": "string"
+    },
+    "JourneyStepValidation": {
+      "properties": {
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "step_id": {
+          "title": "Step Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "ok"
+      ],
+      "title": "JourneyStepValidation",
+      "type": "object"
+    },
+    "JourneyValidation": {
+      "description": "Result of replaying a journey against a (possibly modified) graph.",
+      "properties": {
+        "broken_steps": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Broken Steps",
+          "type": "array"
+        },
+        "degraded_steps": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Degraded Steps",
+          "type": "array"
+        },
+        "journey_id": {
+          "title": "Journey Id",
+          "type": "string"
+        },
+        "journey_name": {
+          "title": "Journey Name",
+          "type": "string"
+        },
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/JourneyStepValidation"
+          },
+          "title": "Steps",
+          "type": "array"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "journey_id",
+        "journey_name",
+        "ok"
+      ],
+      "title": "JourneyValidation",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "added_edges": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Added Edges",
+      "type": "array"
+    },
+    "added_nodes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Added Nodes",
+      "type": "array"
+    },
+    "affected_journeys": {
+      "items": {
+        "$ref": "#/$defs/JourneyValidation"
+      },
+      "title": "Affected Journeys",
+      "type": "array"
+    },
+    "assumptions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Assumptions",
+      "type": "array"
+    },
+    "changed_nodes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Changed Nodes",
+      "type": "array"
+    },
+    "changes": {
+      "items": {
+        "$ref": "#/$defs/Change"
+      },
+      "title": "Changes",
+      "type": "array"
+    },
+    "counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Counts",
+      "type": "object"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/ImpactItem"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "removed_edges": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Removed Edges",
+      "type": "array"
+    },
+    "removed_nodes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Removed Nodes",
+      "type": "array"
+    },
+    "scenario_id": {
+      "title": "Scenario Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "scenario_id"
+  ],
+  "title": "ImpactReport",
+  "type": "object"
+}

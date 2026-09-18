@@ -1,0 +1,94 @@
+{
+  "$defs": {
+    "ProviderKind": {
+      "enum": [
+        "deterministic",
+        "ollama",
+        "kimi"
+      ],
+      "title": "ProviderKind",
+      "type": "string"
+    }
+  },
+  "description": "Immutable audit entry. Written once, never edited.",
+  "properties": {
+    "accepted_payload": {
+      "additionalProperties": true,
+      "title": "Accepted Payload",
+      "type": "object"
+    },
+    "action": {
+      "description": "accept_ollama | accept_kimi | merge | reject_both | edit",
+      "title": "Action",
+      "type": "string"
+    },
+    "editor": {
+      "default": "local-user",
+      "title": "Editor",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "model": {
+      "default": "",
+      "title": "Model",
+      "type": "string"
+    },
+    "payload_fingerprint": {
+      "default": "",
+      "title": "Payload Fingerprint",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "Project Id",
+      "type": "string"
+    },
+    "prompt_template_version": {
+      "default": "",
+      "title": "Prompt Template Version",
+      "type": "string"
+    },
+    "provider": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProviderKind"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "source_references": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Source References",
+      "type": "array"
+    },
+    "subject": {
+      "default": "",
+      "title": "Subject",
+      "type": "string"
+    },
+    "task": {
+      "default": "",
+      "title": "Task",
+      "type": "string"
+    },
+    "timestamp": {
+      "title": "Timestamp",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "project_id",
+    "timestamp",
+    "action"
+  ],
+  "title": "DecisionRecord",
+  "type": "object"
+}

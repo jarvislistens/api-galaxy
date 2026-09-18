@@ -279,7 +279,7 @@ export default function Page() {
         <section className="relative flex min-w-0 flex-1 flex-col">
           {/* toolbar */}
           <div className="scroll-x flex h-11 shrink-0 items-center gap-2 border-b border-[var(--color-line)] px-3">
-            <div role="tablist" aria-label="Graph view" className="flex items-center gap-1">
+            <div role="tablist" aria-label="Graph view" className="flex shrink-0 items-center gap-1">
               <ViewTab
                 active={view === "graph"}
                 onClick={() => setView("graph")}
@@ -296,11 +296,11 @@ export default function Page() {
               />
             </div>
 
-            <span className="h-5 w-px bg-[var(--color-line)]" aria-hidden />
+            <span className="h-5 w-px shrink-0 bg-[var(--color-line)]" aria-hidden />
 
             <LayoutPicker value={layout} onChange={setLayout} />
 
-            <span className="h-5 w-px bg-[var(--color-line)]" aria-hidden />
+            <span className="h-5 w-px shrink-0 bg-[var(--color-line)]" aria-hidden />
 
             <CanvasControls
               onZoomIn={() => canvasRef.current?.zoomBy(1.3)}
@@ -313,13 +313,16 @@ export default function Page() {
               focused={focused}
             />
 
-            <div className="ml-auto flex items-center gap-2 pl-2">
+            <div className="ml-auto flex shrink-0 items-center gap-2 pl-2">
               {isFetching && (
-                <span className="text-[11.5px] text-[var(--color-dim)]" role="status">
+                <span
+                  className="whitespace-nowrap text-[11.5px] text-[var(--color-dim)]"
+                  role="status"
+                >
                   Updating…
                 </span>
               )}
-              <Badge tone="neutral">
+              <Badge tone="neutral" className="whitespace-nowrap">
                 <span className="numeral">{nodes.length}</span>&nbsp;nodes ·&nbsp;
                 <span className="numeral">{edges.length}</span>&nbsp;edges
               </Badge>
@@ -572,8 +575,8 @@ function ViewTab({
       aria-controls={controls}
       onClick={onClick}
       className={cx(
-        "flex items-center gap-1.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[12px] font-medium",
-        "transition-colors duration-150",
+        "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[var(--radius-sm)] px-2.5 py-1.5",
+        "text-[12px] font-medium transition-colors duration-150",
         active
           ? "bg-[var(--color-surface-3)] text-[var(--color-ink)]"
           : "text-[var(--color-muted)] hover:text-[var(--color-ink)]",

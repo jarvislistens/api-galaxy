@@ -1,0 +1,96 @@
+{
+  "$defs": {
+    "ProviderKind": {
+      "enum": [
+        "deterministic",
+        "ollama",
+        "kimi"
+      ],
+      "title": "ProviderKind",
+      "type": "string"
+    },
+    "ProviderStatus": {
+      "enum": [
+        "ready",
+        "not_configured",
+        "unreachable",
+        "disabled",
+        "error"
+      ],
+      "title": "ProviderStatus",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "available_models": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Available Models",
+      "type": "array"
+    },
+    "base_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Base Url"
+    },
+    "detail": {
+      "default": "",
+      "title": "Detail",
+      "type": "string"
+    },
+    "external": {
+      "default": false,
+      "title": "External",
+      "type": "boolean"
+    },
+    "kind": {
+      "$ref": "#/$defs/ProviderKind"
+    },
+    "latency_ms": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latency Ms"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model"
+    },
+    "setup_hint": {
+      "default": "",
+      "title": "Setup Hint",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/ProviderStatus"
+    }
+  },
+  "required": [
+    "kind",
+    "status"
+  ],
+  "title": "ProviderHealth",
+  "type": "object"
+}

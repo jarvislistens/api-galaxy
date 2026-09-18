@@ -27,7 +27,6 @@ from api_galaxy.providers.kimi import ConsentRequired, ConsentStore, KimiProvide
 from api_galaxy.providers.ollama import _parse_answer, _parse_enrichment
 from api_galaxy.providers.prompts import ANSWER_SCHEMA, ENRICHMENT_SCHEMA
 
-
 # --------------------------------------------------------------------------------------
 # JSON extraction and validation
 # --------------------------------------------------------------------------------------

@@ -68,7 +68,8 @@ export function CommandPalette({ projectId }: { projectId: string }) {
     return SECTIONS.filter((s) => s.label.toLowerCase().includes(needle));
   }, [query]);
 
-  const nodeMatches = data?.results ?? [];
+  // Memoised so the `go` callback below does not get a new identity on every render.
+  const nodeMatches = React.useMemo(() => data?.results ?? [], [data]);
   const total = sectionMatches.length + nodeMatches.length;
 
   React.useEffect(() => setCursor(0), [debounced, open]);

@@ -309,7 +309,10 @@ export function Switch({
   description?: string;
   id?: string;
 }) {
-  const inputId = id ?? React.useId();
+  // `useId` is called unconditionally — `id ?? React.useId()` short-circuits, which
+  // changes the hook order between renders when a caller starts or stops passing an id.
+  const generatedId = React.useId();
+  const inputId = id ?? generatedId;
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0">
@@ -357,7 +360,8 @@ export function Field({
   children: React.ReactNode;
   id?: string;
 }) {
-  const fieldId = id ?? React.useId();
+  const generatedId = React.useId();
+  const fieldId = id ?? generatedId;
   const describedBy = [hint ? `${fieldId}-hint` : null, error ? `${fieldId}-error` : null]
     .filter(Boolean)
     .join(" ");

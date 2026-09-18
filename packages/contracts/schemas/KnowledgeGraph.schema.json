@@ -1,0 +1,408 @@
+{
+  "$defs": {
+    "Acceptance": {
+      "enum": [
+        "observed",
+        "proposed",
+        "accepted",
+        "rejected",
+        "superseded"
+      ],
+      "title": "Acceptance",
+      "type": "string"
+    },
+    "EdgeType": {
+      "enum": [
+        "CONTAINS",
+        "EXPOSES",
+        "USES_REQUEST",
+        "RETURNS",
+        "REFERENCES",
+        "REQUIRES_SECURITY",
+        "BELONGS_TO_DOMAIN",
+        "REPRESENTS",
+        "CALLS_OR_PRECEDES",
+        "PART_OF_JOURNEY",
+        "DEPENDS_ON",
+        "ALIAS_OF",
+        "CONTAINS_PII",
+        "AFFECTS",
+        "BREAKS",
+        "REPAIRED_BY",
+        "INFERRED_RELATION"
+      ],
+      "title": "EdgeType",
+      "type": "string"
+    },
+    "Evidence": {
+      "description": "A pointer back into the source material that justifies a node, edge or answer.",
+      "properties": {
+        "excerpt": {
+          "default": "",
+          "description": "Short, escaped quote from the source.",
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "pointer": {
+          "description": "RFC 6901 JSON Pointer into the normalized spec.",
+          "title": "Pointer",
+          "type": "string"
+        },
+        "source_file": {
+          "title": "Source File",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source_file",
+        "pointer"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "GraphEdge": {
+      "properties": {
+        "acceptance": {
+          "$ref": "#/$defs/Acceptance",
+          "default": "observed"
+        },
+        "attrs": {
+          "additionalProperties": true,
+          "title": "Attrs",
+          "type": "object"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/EdgeType"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "source",
+        "target",
+        "provenance"
+      ],
+      "title": "GraphEdge",
+      "type": "object"
+    },
+    "GraphNode": {
+      "properties": {
+        "acceptance": {
+          "$ref": "#/$defs/Acceptance",
+          "default": "observed"
+        },
+        "attrs": {
+          "additionalProperties": true,
+          "title": "Attrs",
+          "type": "object"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "project_id": {
+          "title": "Project Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "type": {
+          "$ref": "#/$defs/NodeType"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "label",
+        "project_id",
+        "provenance"
+      ],
+      "title": "GraphNode",
+      "type": "object"
+    },
+    "NodeType": {
+      "enum": [
+        "Estate",
+        "Domain",
+        "Service",
+        "Server",
+        "APIOperation",
+        "Endpoint",
+        "Schema",
+        "Field",
+        "SecurityScheme",
+        "BusinessEntity",
+        "Capability",
+        "Journey",
+        "JourneyStep",
+        "Risk",
+        "Scenario",
+        "Change",
+        "Repair",
+        "Evidence"
+      ],
+      "title": "NodeType",
+      "type": "string"
+    },
+    "Provenance": {
+      "description": "Why this object exists and how much you should trust it.",
+      "properties": {
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "explanation": {
+          "description": "Human-readable, one sentence, no jargon.",
+          "title": "Explanation",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "prompt_template_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Template Version"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "rule_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule Id"
+        },
+        "source_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source File"
+        },
+        "source_kind": {
+          "$ref": "#/$defs/SourceKind"
+        },
+        "source_pointer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Pointer"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_kind",
+        "explanation"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "SourceKind": {
+      "description": "Where a fact came from. This is the fact-vs-inference boundary.",
+      "enum": [
+        "specification",
+        "deterministic_rule",
+        "bundled_analysis",
+        "ai_inference",
+        "user_edit",
+        "scenario"
+      ],
+      "title": "SourceKind",
+      "type": "string"
+    }
+  },
+  "description": "A complete, self-describing graph document. This is what gets snapshotted.",
+  "properties": {
+    "app_version": {
+      "default": "",
+      "title": "App Version",
+      "type": "string"
+    },
+    "diagnostics": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Diagnostics",
+      "type": "array"
+    },
+    "edges": {
+      "items": {
+        "$ref": "#/$defs/GraphEdge"
+      },
+      "title": "Edges",
+      "type": "array"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "nodes": {
+      "items": {
+        "$ref": "#/$defs/GraphNode"
+      },
+      "title": "Nodes",
+      "type": "array"
+    },
+    "project_id": {
+      "title": "Project Id",
+      "type": "string"
+    },
+    "project_name": {
+      "title": "Project Name",
+      "type": "string"
+    },
+    "scenario_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scenario Id"
+    },
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "spec_fingerprint": {
+      "default": "",
+      "title": "Spec Fingerprint",
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_id",
+    "project_name"
+  ],
+  "title": "KnowledgeGraph",
+  "type": "object"
+}

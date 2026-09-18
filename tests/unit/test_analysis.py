@@ -64,6 +64,7 @@ def test_facts_and_inferences_are_never_merged(novacart):
 
 def test_ids_are_stable_across_reruns():
     from api_galaxy.pipeline import analyse_manifest
+
     from tests.conftest import NOVACART_MANIFEST
 
     first = analyse_manifest(NOVACART_MANIFEST, project_id="stable-a")

@@ -103,8 +103,8 @@ export function SemanticZoom({
               )}
             >
               <span className="numeral text-[11px] text-[var(--color-dim)]">{entry.level}</span>
-              <span className="hidden lg:inline">{entry.name}</span>
-              <span className="lg:hidden">{entry.short}</span>
+              <span className="hidden whitespace-nowrap xl:inline">{entry.name}</span>
+              <span className="whitespace-nowrap xl:hidden">{entry.short}</span>
             </button>
           </Tooltip>
         );
@@ -267,21 +267,20 @@ export function LayoutPicker({
   onChange: (value: LayoutName) => void;
 }) {
   return (
-    <label className="flex items-center gap-1.5 text-[12px] text-[var(--color-muted)]">
+    <div className="flex shrink-0 items-center gap-1.5 text-[12px] text-[var(--color-muted)]">
       <Layers size={13} aria-hidden className="shrink-0" />
-      <span className="sr-only sm:not-sr-only">Layout</span>
       <Select
         value={value}
         onChange={(event) => onChange(event.target.value as LayoutName)}
         aria-label="Graph layout"
-        className="h-8 w-[112px]"
+        className="h-8 w-[104px] shrink-0"
       >
         <option value="force">Force</option>
         <option value="hierarchy">Hierarchy</option>
         <option value="circle">Circle</option>
         <option value="grid">Grid</option>
       </Select>
-    </label>
+    </div>
   );
 }
 
@@ -306,7 +305,7 @@ export function CanvasControls({
   focused: boolean;
 }) {
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex shrink-0 items-center gap-1">
       <Tooltip label="Zoom in">
         <Button variant="ghost" size="sm" onClick={onZoomIn} aria-label="Zoom in">
           <ZoomIn size={14} />

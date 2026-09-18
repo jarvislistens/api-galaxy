@@ -1,0 +1,387 @@
+{
+  "$defs": {
+    "InferredAlias": {
+      "properties": {
+        "canonical_name": {
+          "title": "Canonical Name",
+          "type": "string"
+        },
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "member_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Member Ids",
+          "type": "array"
+        },
+        "rationale": {
+          "default": "",
+          "title": "Rationale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "canonical_name"
+      ],
+      "title": "InferredAlias",
+      "type": "object"
+    },
+    "InferredCapability": {
+      "properties": {
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "operation_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Operation Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "InferredCapability",
+      "type": "object"
+    },
+    "InferredDomain": {
+      "properties": {
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "service_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Service Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "InferredDomain",
+      "type": "object"
+    },
+    "InferredEntity": {
+      "properties": {
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "represented_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Represented By",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "InferredEntity",
+      "type": "object"
+    },
+    "InferredJourney": {
+      "properties": {
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "narrations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Narrations",
+          "type": "array"
+        },
+        "operation_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Operation Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "InferredJourney",
+      "type": "object"
+    },
+    "InferredRelation": {
+      "properties": {
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "rationale": {
+          "default": "",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "relation": {
+          "default": "DEPENDS_ON",
+          "title": "Relation",
+          "type": "string"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "target_id": {
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "target_id"
+      ],
+      "title": "InferredRelation",
+      "type": "object"
+    },
+    "InferredRisk": {
+      "properties": {
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "node_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Node Ids",
+          "type": "array"
+        },
+        "severity": {
+          "default": "medium",
+          "title": "Severity",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "InferredRisk",
+      "type": "object"
+    },
+    "ProviderKind": {
+      "enum": [
+        "deterministic",
+        "ollama",
+        "kimi"
+      ],
+      "title": "ProviderKind",
+      "type": "string"
+    }
+  },
+  "description": "Versioned so a cached result can be invalidated when the schema changes.",
+  "properties": {
+    "aliases": {
+      "items": {
+        "$ref": "#/$defs/InferredAlias"
+      },
+      "title": "Aliases",
+      "type": "array"
+    },
+    "capabilities": {
+      "items": {
+        "$ref": "#/$defs/InferredCapability"
+      },
+      "title": "Capabilities",
+      "type": "array"
+    },
+    "domains": {
+      "items": {
+        "$ref": "#/$defs/InferredDomain"
+      },
+      "title": "Domains",
+      "type": "array"
+    },
+    "dropped_references": {
+      "description": "IDs the model invented; discarded before use.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Dropped References",
+      "type": "array"
+    },
+    "entities": {
+      "items": {
+        "$ref": "#/$defs/InferredEntity"
+      },
+      "title": "Entities",
+      "type": "array"
+    },
+    "input_tokens": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Input Tokens"
+    },
+    "journeys": {
+      "items": {
+        "$ref": "#/$defs/InferredJourney"
+      },
+      "title": "Journeys",
+      "type": "array"
+    },
+    "latency_ms": {
+      "default": 0.0,
+      "title": "Latency Ms",
+      "type": "number"
+    },
+    "model": {
+      "default": "",
+      "title": "Model",
+      "type": "string"
+    },
+    "output_tokens": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Tokens"
+    },
+    "prompt_template_version": {
+      "default": "",
+      "title": "Prompt Template Version",
+      "type": "string"
+    },
+    "provider": {
+      "$ref": "#/$defs/ProviderKind"
+    },
+    "rationale": {
+      "default": "",
+      "description": "Concise summary. Never chain-of-thought.",
+      "title": "Rationale",
+      "type": "string"
+    },
+    "relations": {
+      "items": {
+        "$ref": "#/$defs/InferredRelation"
+      },
+      "title": "Relations",
+      "type": "array"
+    },
+    "retries": {
+      "default": 0,
+      "title": "Retries",
+      "type": "integer"
+    },
+    "risks": {
+      "items": {
+        "$ref": "#/$defs/InferredRisk"
+      },
+      "title": "Risks",
+      "type": "array"
+    },
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "valid_json": {
+      "default": true,
+      "title": "Valid Json",
+      "type": "boolean"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "provider"
+  ],
+  "title": "EnrichmentResult",
+  "type": "object"
+}

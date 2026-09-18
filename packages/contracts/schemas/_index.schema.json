@@ -1,0 +1,22 @@
+{
+  "app_version": "0.1.0",
+  "generated_by": "scripts/export_contracts.py",
+  "models": [
+    "ArenaComparison",
+    "DecisionRecord",
+    "EnrichmentResult",
+    "EstateOverview",
+    "GraphAnswer",
+    "GraphEdge",
+    "GraphNode",
+    "ImpactReport",
+    "Journey",
+    "KnowledgeGraph",
+    "Provenance",
+    "ProviderHealth",
+    "Repair",
+    "Risk",
+    "Scenario"
+  ],
+  "note": "Generated from the Pydantic contracts. Do not edit by hand."
+}

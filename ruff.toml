@@ -1,0 +1,21 @@
+# Repo-wide lint configuration.
+#
+# `apps/api/pyproject.toml` only governs files underneath it, so `tests/` and `scripts/`
+# would otherwise fall back to ruff's defaults and drift from the backend's rules. This
+# file makes one `ruff check` at the repo root mean the same thing everywhere.
+
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv", "node_modules", ".next", "samples"]
+
+[lint]
+select = ["E", "F", "I", "B", "UP", "W"]
+# B008: FastAPI's Depends()/Query() defaults are the documented idiom.
+# E501: long lines are allowed in prose docstrings; code stays within 100.
+# UP042: `str, Enum` is deliberate — it is what makes these enums serialise to plain
+#        strings in JSON responses and compare equal to the strings the web app sends.
+ignore = ["B008", "E501", "UP042"]
+
+[lint.per-file-ignores]
+# Tests import fixtures by name and assert on them; unused-argument noise is not useful.
+"tests/**" = ["B011"]

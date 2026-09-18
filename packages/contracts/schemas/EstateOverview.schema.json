@@ -1,0 +1,376 @@
+{
+  "$defs": {
+    "Ambiguity": {
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "default": "semantic",
+          "title": "Kind",
+          "type": "string"
+        },
+        "node_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Node Ids",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "description",
+        "provenance"
+      ],
+      "title": "Ambiguity",
+      "type": "object"
+    },
+    "Evidence": {
+      "description": "A pointer back into the source material that justifies a node, edge or answer.",
+      "properties": {
+        "excerpt": {
+          "default": "",
+          "description": "Short, escaped quote from the source.",
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "pointer": {
+          "description": "RFC 6901 JSON Pointer into the normalized spec.",
+          "title": "Pointer",
+          "type": "string"
+        },
+        "source_file": {
+          "title": "Source File",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source_file",
+        "pointer"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "Provenance": {
+      "description": "Why this object exists and how much you should trust it.",
+      "properties": {
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "explanation": {
+          "description": "Human-readable, one sentence, no jargon.",
+          "title": "Explanation",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "prompt_template_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Template Version"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "rule_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule Id"
+        },
+        "source_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source File"
+        },
+        "source_kind": {
+          "$ref": "#/$defs/SourceKind"
+        },
+        "source_pointer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Pointer"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_kind",
+        "explanation"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "Risk": {
+      "description": "A finding. ``heuristic`` is true when the rule guesses rather than proves.",
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/RiskCategory"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "edge_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Edge Ids",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "heuristic": {
+          "default": false,
+          "title": "Heuristic",
+          "type": "boolean"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "node_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Node Ids",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "recommendation": {
+          "default": "",
+          "title": "Recommendation",
+          "type": "string"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/RiskSeverity"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "rule_id",
+        "severity",
+        "category",
+        "title",
+        "description",
+        "provenance"
+      ],
+      "title": "Risk",
+      "type": "object"
+    },
+    "RiskCategory": {
+      "enum": [
+        "security",
+        "privacy",
+        "compatibility",
+        "consistency",
+        "structure",
+        "ambiguity"
+      ],
+      "title": "RiskCategory",
+      "type": "string"
+    },
+    "RiskSeverity": {
+      "enum": [
+        "high",
+        "medium",
+        "low",
+        "info"
+      ],
+      "title": "RiskSeverity",
+      "type": "string"
+    },
+    "SourceKind": {
+      "description": "Where a fact came from. This is the fact-vs-inference boundary.",
+      "enum": [
+        "specification",
+        "deterministic_rule",
+        "bundled_analysis",
+        "ai_inference",
+        "user_edit",
+        "scenario"
+      ],
+      "title": "SourceKind",
+      "type": "string"
+    }
+  },
+  "description": "Everything the Overview screen needs in one payload.",
+  "properties": {
+    "ambiguities": {
+      "items": {
+        "$ref": "#/$defs/Ambiguity"
+      },
+      "title": "Ambiguities",
+      "type": "array"
+    },
+    "counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Counts",
+      "type": "object"
+    },
+    "derivation": {
+      "description": "Backs the 'How was this derived?' control.",
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Derivation",
+      "type": "array"
+    },
+    "domains": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Domains",
+      "type": "array"
+    },
+    "enrichment": {
+      "additionalProperties": true,
+      "title": "Enrichment",
+      "type": "object"
+    },
+    "journeys": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Journeys",
+      "type": "array"
+    },
+    "parse_coverage": {
+      "additionalProperties": true,
+      "title": "Parse Coverage",
+      "type": "object"
+    },
+    "project_id": {
+      "title": "Project Id",
+      "type": "string"
+    },
+    "project_name": {
+      "title": "Project Name",
+      "type": "string"
+    },
+    "top_risks": {
+      "items": {
+        "$ref": "#/$defs/Risk"
+      },
+      "title": "Top Risks",
+      "type": "array"
+    }
+  },
+  "required": [
+    "project_id",
+    "project_name"
+  ],
+  "title": "EstateOverview",
+  "type": "object"
+}

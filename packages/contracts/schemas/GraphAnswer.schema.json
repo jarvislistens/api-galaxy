@@ -1,0 +1,154 @@
+{
+  "$defs": {
+    "AnswerEvidence": {
+      "properties": {
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "why": {
+          "default": "",
+          "title": "Why",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id"
+      ],
+      "title": "AnswerEvidence",
+      "type": "object"
+    },
+    "ProviderKind": {
+      "enum": [
+        "deterministic",
+        "ollama",
+        "kimi"
+      ],
+      "title": "ProviderKind",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "answer": {
+      "title": "Answer",
+      "type": "string"
+    },
+    "confidence": {
+      "default": 0.5,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "coverage": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Coverage",
+      "type": "number"
+    },
+    "dropped_references": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Dropped References",
+      "type": "array"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/AnswerEvidence"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "grounded": {
+      "default": true,
+      "title": "Grounded",
+      "type": "boolean"
+    },
+    "highlighted_edge_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Highlighted Edge Ids",
+      "type": "array"
+    },
+    "highlighted_node_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Highlighted Node Ids",
+      "type": "array"
+    },
+    "inference_note": {
+      "default": "",
+      "title": "Inference Note",
+      "type": "string"
+    },
+    "input_tokens": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Input Tokens"
+    },
+    "latency_ms": {
+      "default": 0.0,
+      "title": "Latency Ms",
+      "type": "number"
+    },
+    "model": {
+      "default": "",
+      "title": "Model",
+      "type": "string"
+    },
+    "output_tokens": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Tokens"
+    },
+    "path": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Path",
+      "type": "array"
+    },
+    "provider": {
+      "$ref": "#/$defs/ProviderKind"
+    },
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "technical_explanation": {
+      "default": "",
+      "title": "Technical Explanation",
+      "type": "string"
+    }
+  },
+  "required": [
+    "provider",
+    "answer"
+  ],
+  "title": "GraphAnswer",
+  "type": "object"
+}

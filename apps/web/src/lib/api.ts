@@ -67,7 +67,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         ...init?.headers,
       },
     });
-  } catch (cause) {
+  } catch {
+    // A network-level failure has no problem document to report, so the message has to
+    // be the actionable thing: the backend is almost always simply not running.
     throw new ApiError(
       "Could not reach the API Galaxy backend. Is it running on port 8099?",
       0,
