@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from math import ceil
 from xml.sax.saxutils import escape, quoteattr
 
 from api_galaxy.contracts.analysis import Journey
@@ -40,6 +41,11 @@ from api_galaxy.exports.support import ExportUnavailable, probe_cairosvg, trunca
 NODE_WIDTH = 188
 NODE_HEIGHT = 46
 LAYER_GAP = 96
+# A layer taller than this wraps into side-by-side sub-columns, so a Field layer with
+# hundreds of nodes cannot stretch the canvas into an unreadable vertical sliver.
+MAX_ROWS_PER_COLUMN = 26
+MIN_ROWS_PER_COLUMN = 6
+SUB_COLUMN_GAP = 26
 ROW_GAP = 22
 MARGIN = 32
 HEADER_HEIGHT = 96
@@ -259,17 +265,39 @@ def layout(
                 )
             by_layer[rank] = sorted(by_layer[rank], key=lambda nid: (centres[nid], current[nid]))
 
-    tallest = max(len(ids) for ids in by_layer.values())
+    # A layer is not necessarily one column.
+    #
+    # The Field layer of a real estate holds hundreds of nodes. Stacking those in a single
+    # column made the whole-estate diagram 1104 × 6438 — an aspect ratio of 1:5.8, which
+    # `preserveAspectRatio` then fits by height, so the map rendered as an unreadable
+    # vertical sliver in the HTML report. Wrapping a tall layer into side-by-side
+    # sub-columns keeps the canvas close to landscape without changing the layer ordering
+    # the barycentre sweeps just computed.
+    rows_per_column = max(
+        MIN_ROWS_PER_COLUMN, min(MAX_ROWS_PER_COLUMN, max(len(ids) for ids in by_layer.values()))
+    )
+    tallest = min(rows_per_column, max(len(ids) for ids in by_layer.values()))
     column_height = tallest * NODE_HEIGHT + (tallest - 1) * ROW_GAP
 
     positions: dict[str, tuple[float, float]] = {}
+    layer_extent: dict[int, tuple[float, float]] = {}
+    x = float(MARGIN)
     for rank in ranks:
         ids = by_layer[rank]
-        span = len(ids) * NODE_HEIGHT + (len(ids) - 1) * ROW_GAP
+        columns = max(1, ceil(len(ids) / rows_per_column))
+        rows = ceil(len(ids) / columns)
+        span = rows * NODE_HEIGHT + (rows - 1) * ROW_GAP
         top = MARGIN + HEADER_HEIGHT + (column_height - span) / 2
-        x = MARGIN + rank * (NODE_WIDTH + LAYER_GAP)
         for index, node_id in enumerate(ids):
-            positions[node_id] = (x, top + index * (NODE_HEIGHT + ROW_GAP))
+            column, row = divmod(index, rows)
+            positions[node_id] = (
+                x + column * (NODE_WIDTH + SUB_COLUMN_GAP),
+                top + row * (NODE_HEIGHT + ROW_GAP),
+            )
+        width = columns * NODE_WIDTH + (columns - 1) * SUB_COLUMN_GAP
+        layer_extent[rank] = (x, width)
+        x += width + LAYER_GAP
+
     return positions
 
 
@@ -424,15 +452,32 @@ def _svg_defs() -> str:
 
 
 def _svg_layer_bands(diagram: DiagramData) -> str:
+    """Draw one band per layer, measured from where its nodes actually ended up.
+
+    A tall layer is wrapped into several sub-columns, so the band's width cannot be
+    assumed from the rank — it has to be read back off the positions.
+    """
     if not diagram.positions:
         return ""
+    extents: dict[int, tuple[float, float]] = {}
+    for node in diagram.nodes:
+        position = diagram.positions.get(node.id)
+        if position is None:
+            continue
+        rank = layer_of(node)
+        left, right = extents.get(rank, (position[0], position[0] + NODE_WIDTH))
+        extents[rank] = (min(left, position[0]), max(right, position[0] + NODE_WIDTH))
+
     out: list[str] = ['<g class="ag-bands">']
     for rank in diagram.layers:
-        x = MARGIN + rank * (NODE_WIDTH + LAYER_GAP) - 10
+        if rank not in extents:
+            continue
+        left, right = extents[rank]
+        x = left - 10
         band_height = diagram.height - LEGEND_HEIGHT - MARGIN - HEADER_HEIGHT
         out.append(
             f'<rect class="ag-band" x="{x:.0f}" y="{MARGIN + HEADER_HEIGHT - 22:.0f}" '
-            f'width="{NODE_WIDTH + 20}" height="{max(band_height, 40):.0f}" rx="12"/>'
+            f'width="{right - left + 20:.0f}" height="{max(band_height, 40):.0f}" rx="12"/>'
         )
         title = LAYER_TITLES[rank] if rank < len(LAYER_TITLES) else f"Layer {rank}"
         out.append(
