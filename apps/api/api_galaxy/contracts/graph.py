@@ -10,7 +10,7 @@ Two rules are load-bearing for the whole product:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -20,7 +20,7 @@ GRAPH_SCHEMA_VERSION = "1.0"
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class NodeType(str, Enum):

@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
+from api_galaxy.analysis.pii import DEFAULT_DICTIONARY, PiiDictionary
 from api_galaxy.contracts.analysis import Risk, RiskCategory, RiskSeverity
 from api_galaxy.contracts.graph import (
     Acceptance,
@@ -34,8 +35,7 @@ from api_galaxy.contracts.ids import (
     schema_id,
     service_id,
 )
-from api_galaxy.analysis.pii import DEFAULT_DICTIONARY, PiiDictionary
-from api_galaxy.parsing.normalize import DiagnosticLevel, NormalizedEstate, NormalizedService
+from api_galaxy.parsing.normalize import NormalizedEstate, NormalizedService
 
 WRITE_METHODS = {"post", "put", "patch", "delete"}
 ERROR_STATUS = re.compile(r"^[45]\d\d$|^[45]XX$", re.IGNORECASE)

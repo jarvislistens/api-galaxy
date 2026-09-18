@@ -18,6 +18,7 @@ graph, and every export repeats that caveat.
 
 from __future__ import annotations
 
+from api_galaxy.analysis.journeys import validate_all
 from api_galaxy.contracts.analysis import Journey, JourneyValidation
 from api_galaxy.contracts.graph import (
     Acceptance,
@@ -40,7 +41,6 @@ from api_galaxy.contracts.scenario import (
     RepairStatus,
     Scenario,
 )
-from api_galaxy.analysis.journeys import validate_all
 from api_galaxy.graph.engine import NetworkXGraphRepository, QueryLimits
 
 CONTRACT_EDGES = frozenset(
@@ -477,7 +477,7 @@ def _reason_for(status: ImpactStatus, distance: int, via_inference: bool) -> str
     if status is ImpactStatus.BROKEN:
         return f"Directly consumes the changed contract ({distance} hop)."
     if status is ImpactStatus.DEGRADED:
-        return f"Two hops away — the contract still matches but the meaning has moved."
+        return "Two hops away — the contract still matches but the meaning has moved."
     return f"{distance} hops away along declared dependencies."
 
 

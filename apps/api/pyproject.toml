@@ -41,7 +41,11 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "W"]
-ignore = ["B008", "E501"]
+# B008: FastAPI's Depends()/Query() defaults are the documented idiom.
+# E501: long lines are allowed in prose docstrings; code stays within 100.
+# UP042: `str, Enum` is deliberate — it is what makes these enums serialise to plain
+#        strings in JSON responses and compare equal to the strings the web app sends.
+ignore = ["B008", "E501", "UP042"]
 
 [tool.mypy]
 python_version = "3.12"

@@ -8,7 +8,7 @@ never allowed to overwrite what is built here.
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from api_galaxy.contracts.graph import (
     Acceptance,

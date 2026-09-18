@@ -8,8 +8,9 @@ your own laptop.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable, Protocol
+from typing import Protocol
 
 import networkx as nx
 

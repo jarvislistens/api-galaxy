@@ -36,7 +36,11 @@ from api_galaxy.contracts.graph import (
     SourceKind,
 )
 from api_galaxy.contracts.ids import edge_id, slugify
-from api_galaxy.enrichment.bundled import BUNDLED_LABEL, apply_bundled_analysis, load_bundled_analysis
+from api_galaxy.enrichment.bundled import (
+    BUNDLED_LABEL,
+    apply_bundled_analysis,
+    load_bundled_analysis,
+)
 from api_galaxy.graph.builder import build_graph
 from api_galaxy.parsing.loader import load_estate_manifest
 from api_galaxy.parsing.normalize import NormalizedEstate

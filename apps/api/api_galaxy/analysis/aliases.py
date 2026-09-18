@@ -26,7 +26,8 @@ both accurate on real estates and easy for a reviewer to check in a single click
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field as dc_field
+from dataclasses import dataclass
+from dataclasses import field as dc_field
 
 from api_galaxy.analysis.pii import _CAMEL, _SPLIT
 from api_galaxy.contracts.analysis import AliasCluster

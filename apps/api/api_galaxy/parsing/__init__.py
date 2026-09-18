@@ -21,7 +21,7 @@ from api_galaxy.parsing.normalize import (
     NormServer,
 )
 from api_galaxy.parsing.openapi import OpenAPIParser, parse_estate, parse_service
-from api_galaxy.parsing.refs import RefResolver, RefResolutionError
+from api_galaxy.parsing.refs import RefResolutionError, RefResolver
 
 __all__ = [
     "Diagnostic",
