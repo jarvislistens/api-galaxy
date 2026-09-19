@@ -220,10 +220,16 @@ export function BreakLab({ projectId }: { projectId: string }) {
     addChange.isPending || undoChange.isPending || resetScenario.isPending || deleteScenario.isPending;
 
   // A scenario that was deleted elsewhere should not stay "active" in the store.
+  //
+  // The guard is `isFetching`, not `isLoading`. `isLoading` is only true on the very
+  // first fetch, so after creating a scenario this effect ran against the *stale* list —
+  // which of course did not contain the scenario that had just been created — and
+  // immediately cleared it. Creating a scenario looked like it silently did nothing,
+  // even though the API had stored it correctly.
   React.useEffect(() => {
-    if (!scenarioId || scenarios.isLoading) return;
+    if (!scenarioId || scenarios.isFetching) return;
     if (!scenarioList.some((scenario) => scenario.id === scenarioId)) setScenario(null);
-  }, [scenarioId, scenarioList, scenarios.isLoading, setScenario]);
+  }, [scenarioId, scenarioList, scenarios.isFetching, setScenario]);
 
   /* --------------------------------------------------------------------- view */
 

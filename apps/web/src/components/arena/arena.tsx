@@ -287,10 +287,10 @@ export function Arena({ projectId }: { projectId: string }) {
               </Field>
             </div>
             <div className="w-[280px]">
-              <Field
-                label="Scope"
-                hint="Narrowing to one domain keeps the context small, which is fairer to a local model."
-              >
+              {/* The hint lives below the row, not inside this Field. With `items-end`
+                  a hint here makes only this column taller, so its label and select get
+                  pushed up and stop lining up with Provider A and B. */}
+              <Field label="Scope">
                 <Select value={domainId} onChange={(event) => setDomainId(event.target.value)}>
                   <option value="">The whole estate</option>
                   {(overview.data?.domains ?? []).map((domain) => (
@@ -311,6 +311,11 @@ export function Arena({ projectId }: { projectId: string }) {
               Run arena
             </Button>
           </div>
+
+          <p className="mt-2 text-[12px] text-[var(--color-dim)]">
+            Narrowing the scope to one domain keeps the context small, which is fairer to a
+            local model.
+          </p>
 
           {sameProvider && (
             <p role="alert" className="mt-3 text-[12px] text-[var(--color-broken)]">

@@ -102,13 +102,17 @@ export const STATUS_META: Record<
   degraded: {
     word: "Degraded",
     icon: AlertTriangle,
+    // Two hops along a contract, or any hop through a meaning-carrying link such as an
+    // alias. Both leave the shape intact and move what it means.
     detail: "Still type-checks, but the meaning moved",
     tone: "degraded",
   },
   potentially_affected: {
     word: "Potentially affected",
     icon: HelpCircle,
-    detail: "Reached only through an inferred relationship",
+    // Was "reached only through an inferred relationship", which stopped being the whole
+    // story once severity became route-aware: distance alone puts things here too.
+    detail: "Further away, or reached through a suggested link",
     tone: "possible",
   },
   unaffected: {

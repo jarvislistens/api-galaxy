@@ -321,7 +321,11 @@ export const LEGEND_EDGES = [
 export const LEGEND_STATES = [
   { key: "broken", label: "Broken", detail: "Cannot work without a code change" },
   { key: "degraded", label: "Degraded", detail: "Still type-checks, meaning moved" },
-  { key: "potentially_affected", label: "Possibly affected", detail: "Weaker evidence" },
+  {
+    key: "potentially_affected",
+    label: "Possibly affected",
+    detail: "Further away, or reached through a suggested link",
+  },
 ];
 
 /** Which provenance bucket a node or edge belongs to, for styling. */

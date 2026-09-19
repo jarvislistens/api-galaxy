@@ -138,6 +138,24 @@ test("8. break and repair: rename customer_id, then restore the journeys", async
   expect(body.toLowerCase()).toMatch(/never modified|base project/);
 });
 
+test("8b. a scenario you create stays selected", async ({ page }) => {
+  // Regression: `onSuccess` selected the new scenario, then a cleanup effect guarded on
+  // `isLoading` — true only on the *first* fetch — ran against the stale list, failed to
+  // find the scenario that had just been created, and cleared the selection. The API had
+  // stored it correctly, so creating a scenario looked like it silently did nothing.
+  await page.goto(`${WORKSPACE}/break-lab`);
+  await settled(page);
+
+  await page.getByRole("button", { name: "New scenario" }).click();
+  const name = `Stays selected ${Date.now()}`;
+  await page.getByLabel(/name/i).first().fill(name);
+  await page.getByRole("button", { name: "Create scenario" }).click();
+
+  // The picker must now show the new scenario, not fall back to the empty state.
+  await expect(page.locator("select").first()).toContainText(name, { timeout: 10_000 });
+  await expect(page.getByText(/pick a scenario, or make one/i)).toHaveCount(0);
+});
+
 // ----------------------------------------------------------------------------- galaxy
 
 test("9. the galaxy renders and offers a keyboard-navigable alternative", async ({ page }) => {
