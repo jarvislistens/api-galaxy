@@ -6,8 +6,10 @@ The **source of truth** is the Pydantic models in `apps/api/api_galaxy/contracts
 Everything in `schemas/` is generated from them:
 
 ```bash
-python scripts/export_contracts.py           # regenerate
-python scripts/export_contracts.py --check   # fail if stale (CI)
+# regenerate
+python scripts/export_contracts.py
+# fail if stale (CI)
+python scripts/export_contracts.py --check
 ```
 
 ## Why generated schemas rather than generated TypeScript

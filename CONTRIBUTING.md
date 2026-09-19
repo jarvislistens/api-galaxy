@@ -6,9 +6,12 @@ maintain this?" rather than "does it pass CI".
 ## Getting set up
 
 ```bash
-make setup      # Python venv + node modules
-make check      # lint, types, tests — should be green before you start
-make demo       # both servers plus the NovaCart estate
+# Python venv + node modules
+make setup
+# lint, types, tests — should be green before you start
+make check
+# both servers plus the NovaCart estate
+make demo
 ```
 
 Prerequisites: Python 3.11–3.13, Node 20+. Ollama is optional — everything works without it.
@@ -70,10 +73,13 @@ Every change to analysis, providers or exports needs a test. Tests assert **beha
 user would notice**, not implementation details.
 
 ```bash
-make test-api                    # pytest
+# pytest
+make test-api
 .venv/bin/python -m pytest tests/unit/test_analysis.py -q -k alias
-make test-web                    # tsc + eslint
-make e2e                         # Playwright (needs both servers up)
+# tsc + eslint
+make test-web
+# Playwright (needs both servers up)
+make e2e
 ```
 
 If you add a rule, add a case to the NovaCart sample that triggers it and a test that

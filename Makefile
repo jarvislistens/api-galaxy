@@ -10,10 +10,13 @@ API_DIR := apps/api
 WEB_DIR := apps/web
 PORT_API ?= 8099
 PORT_WEB ?= 3000
+# The browser calls /api/* on its own origin and Next proxies to this. It has to track
+# PORT_API, or `make demo PORT_API=8100` serves a UI pointed at a backend that is not there.
+API_URL ?= http://127.0.0.1:$(PORT_API)
 
 .DEFAULT_GOAL := help
 .PHONY: help setup setup-api setup-web dev dev-api dev-web build test test-api test-web \
-        e2e lint typecheck format demo demo-reset clean doctor check
+        e2e lint typecheck format demo demo-reset clean doctor check ports stop
 
 help: ## Show this help
 	@echo "API Galaxy"
@@ -57,18 +60,48 @@ dev-api: ## Run only the backend
 	  --host 127.0.0.1 --port $(PORT_API) --app-dir $(API_DIR) --reload
 
 dev-web: ## Run only the web app
-	@cd $(WEB_DIR) && npm run dev
+	@cd $(WEB_DIR) && NEXT_PUBLIC_API_URL=$(API_URL) npm run dev -- --port $(PORT_WEB)
+
+ports: ## Show what is listening on the app's ports
+	@for p in $(PORT_API) $(PORT_WEB); do \
+	  pid=$$(lsof -ti tcp:$$p 2>/dev/null | tr '\n' ' '); \
+	  if [ -n "$$pid" ]; then echo "  port $$p  IN USE by pid $$pid"; \
+	  else echo "  port $$p  free"; fi; \
+	done
+
+stop: ## Stop any API or web server this project started
+	@pkill -f "uvicorn api_galaxy" 2>/dev/null && echo "Stopped the API." || echo "No API running."
+	@pkill -f "next dev" 2>/dev/null && echo "Stopped the web app." || echo "No web app running."
 
 demo: ## Start everything and load the bundled NovaCart estate
-	@echo "Starting API…"
+	@# Check the ports before starting anything. Previously this launched uvicorn, and the
+	@# health check then succeeded against whatever was *already* on the port — so it
+	@# printed "Demo estate loaded" and failed to bind in the same breath.
+	@busy=""; \
+	for p in $(PORT_API) $(PORT_WEB); do \
+	  if lsof -ti tcp:$$p >/dev/null 2>&1; then busy="$$busy $$p"; fi; \
+	done; \
+	if [ -n "$$busy" ]; then \
+	  echo "Port(s)$$busy are already in use."; \
+	  echo ""; \
+	  $(MAKE) --no-print-directory ports; \
+	  echo ""; \
+	  echo "Either stop them:      make stop"; \
+	  echo "or use other ports:    make demo PORT_API=8100 PORT_WEB=3100"; \
+	  exit 1; \
+	fi
+	@echo "Starting API on :$(PORT_API)…"
 	@$(PY) -m uvicorn api_galaxy.app.main:app \
 	  --host 127.0.0.1 --port $(PORT_API) --app-dir $(API_DIR) & \
-	  sleep 4; \
+	  for i in 1 2 3 4 5 6 7 8 9 10; do \
+	    curl -sf http://127.0.0.1:$(PORT_API)/api/v1/health >/dev/null && break; \
+	    sleep 1; \
+	  done; \
 	  curl -sf -X POST http://127.0.0.1:$(PORT_API)/api/v1/projects/demo >/dev/null \
 	    && echo "Demo estate loaded." \
-	    || echo "Could not load the demo estate — is port $(PORT_API) free?"; \
+	    || { echo "The API did not come up. Run 'make dev-api' to see why."; exit 1; }; \
 	  echo "Open http://127.0.0.1:$(PORT_WEB) once the web app is up."; \
-	  cd $(WEB_DIR) && npm run dev
+	  cd $(WEB_DIR) && NEXT_PUBLIC_API_URL=$(API_URL) npm run dev -- --port $(PORT_WEB)
 
 demo-reset: ## Delete the demo project so the next load re-parses it
 	@curl -sf -X DELETE http://127.0.0.1:$(PORT_API)/api/v1/projects/demo-novacart >/dev/null \

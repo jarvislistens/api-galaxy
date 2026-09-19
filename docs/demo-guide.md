@@ -10,7 +10,8 @@ the presenter's notes behind it.
 ## Before you start
 
 ```bash
-make demo          # starts both servers and loads NovaCart
+# starts both servers and loads NovaCart
+make demo
 ```
 
 Open `http://127.0.0.1:3000`. Nothing else is required — no model, no key, no network.

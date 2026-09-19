@@ -70,8 +70,10 @@ a person accepts it.
 
 ```bash
 git clone <your-fork> api-galaxy && cd api-galaxy
-make setup        # Python venv + node modules (~2 min)
-make demo         # starts both servers and loads the sample estate
+# Python venv + node modules (~2 min)
+make setup
+# starts both servers and loads the sample estate
+make demo
 ```
 
 Open **http://127.0.0.1:3000** and click **Explore the demo galaxy**.
@@ -83,9 +85,12 @@ estate ships with a precomputed semantic layer so the demo is complete offline.
 <summary><b>Prefer to run the pieces separately?</b></summary>
 
 ```bash
-make dev-api      # FastAPI on :8099  → http://127.0.0.1:8099/api/docs
-make dev-web      # Next.js on :3000
-make doctor       # what is installed, what optional pieces are missing
+# FastAPI on :8099  → http://127.0.0.1:8099/api/docs
+make dev-api
+# Next.js on :3000
+make dev-web
+# what is installed, what optional pieces are missing
+make doctor
 ```
 </details>
 
@@ -275,7 +280,8 @@ forgotten you.
 Everything above works with no model. To add the AI layer:
 
 ```bash
-ollama pull qwen3:4b      # ~2.5 GB, the tested default
+# ~2.5 GB, the tested default
+ollama pull qwen3:4b
 ```
 
 Then Settings → the Ollama card should read **Ready**, and Ask gains a **Local & Private**
@@ -323,11 +329,16 @@ the semantic layer. See [`samples/novacart/README.md`](samples/novacart/README.m
 ## Tests
 
 ```bash
-make test            # everything
-make test-api        # 222 pytest tests: unit + API integration
-make test-web        # TypeScript + ESLint
-make e2e             # Playwright, needs both servers running
-make check           # what CI runs
+# everything
+make test
+# 222 pytest tests: unit + API integration
+make test-api
+# TypeScript + ESLint
+make test-web
+# Playwright, needs both servers running
+make e2e
+# what CI runs
+make check
 ```
 
 Current state, on this machine:
