@@ -36,6 +36,7 @@ export interface Shockwave {
   reason: string;
   chain: string[];
   chain_labels: string[];
+  via: string[];
 }
 
 export function normaliseItem(raw: ImpactItem | Record<string, any>): Shockwave {
@@ -49,7 +50,43 @@ export function normaliseItem(raw: ImpactItem | Record<string, any>): Shockwave 
     reason: item.reason ?? "",
     chain: item.chain ?? [],
     chain_labels: item.chain_labels ?? [],
+    via: item.via ?? [],
   };
+}
+
+/**
+ * Relationships that carry a contract the far end consumes, as opposed to ones that
+ * carry meaning. Mirrors `CONTRACT_EDGES` in the backend's graph engine — the backend
+ * decides severity with it; this only decides how the hop is coloured.
+ */
+export const CONTRACT_RELATIONS = new Set([
+  "CONTAINS",
+  "EXPOSES",
+  "USES_REQUEST",
+  "RETURNS",
+  "REFERENCES",
+  "DEPENDS_ON",
+  "CALLS_OR_PRECEDES",
+  "PART_OF_JOURNEY",
+]);
+
+/** "ALIAS_OF" → "alias of". The relationship type, in words the reader already knows. */
+export function relationWords(edgeType: string): string {
+  return edgeType.replace(/_/g, " ").toLowerCase();
+}
+
+/**
+ * Render the route as `Customer —contains→ customer_id`, so the chain shows *what kind*
+ * of relationship each hop was. A chain of bare names cannot distinguish a contract the
+ * far end consumes from a suggestion that it means the same thing.
+ */
+export function describeRoute(item: Shockwave): string {
+  if (!item.chain_labels.length) return "";
+  return item.chain_labels.reduce((text, label, index) => {
+    if (index === 0) return label;
+    const relation = item.via[index - 1];
+    return `${text} —${relation ? relationWords(relation) : "→"}→ ${label}`;
+  }, "");
 }
 
 export const STATUS_META: Record<
@@ -328,12 +365,29 @@ export function ShockwaveTable({
                     <tr className="border-b border-[var(--color-line)] bg-[var(--color-base)]">
                       <td />
                       <td colSpan={5} className="px-3 py-2.5">
-                        <p className="label-eyebrow mb-1">Dependency chain</p>
+                        <p className="label-eyebrow mb-1">How the change reaches this</p>
                         <p className="mono scroll-x whitespace-nowrap text-[11.5px] text-[var(--color-ink-2)]">
                           {item.chain_labels.length
-                            ? item.chain_labels.join("  →  ")
+                            ? describeRoute(item)
                             : "This node is the change itself."}
                         </p>
+                        {item.via.length > 0 && (
+                          <p className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            {item.via.map((relation, index) => (
+                              <Badge
+                                key={`${relation}-${index}`}
+                                tone={CONTRACT_RELATIONS.has(relation) ? "fact" : "inferred"}
+                              >
+                                {relationWords(relation)}
+                              </Badge>
+                            ))}
+                            <span className="text-[11px] text-[var(--color-dim)]">
+                              {item.via.every((relation) => CONTRACT_RELATIONS.has(relation))
+                                ? "every hop is a contract it consumes"
+                                : "at least one hop carries meaning, not a contract"}
+                            </span>
+                          </p>
+                        )}
                         <p className="mono mt-1.5 break-all text-[11px] text-[var(--color-dim)]">
                           {item.node_id}
                         </p>

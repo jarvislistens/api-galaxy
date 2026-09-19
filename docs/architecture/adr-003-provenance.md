@@ -33,25 +33,50 @@ created_at / updated_at
 Alongside it, `acceptance` records the human decision: `observed`, `proposed`,
 `accepted`, `rejected`, `superseded`.
 
-## The rule that took two attempts to get right
+## The rule that took three attempts to get right
 
 Facts and inferences live in the same graph but are **never merged**, and the boundary is
 drawn by `source_kind` *and* `acceptance` together — not by either alone.
 
 The first version keyed only on `source_kind`. That put alias detection on the wrong side:
-it is a `deterministic_rule`, so it rendered solid, which reads as "the specification says
-these three fields are the same thing". It does not. Alias detection only ever *proposes*.
+it is a `deterministic_rule`, so `source_kind.is_fact` was true and it rendered solid,
+which reads as "the specification says these three fields are the same thing". It does
+not. Alias detection only ever *proposes*.
 
-So `GraphEdge.stroke` checks acceptance first:
+The fix was then re-derived, separately and slightly differently, in three places — the
+stroke, the graph filter, and the impact scorer. Two of them were corrected; the third was
+missed, and an aliased field in another service kept being reported as a **broken
+contract**. Same bug, third instance, because the rule lived in three heads.
 
-| | drawn |
+So it now lives in exactly one: **`Standing`**.
+
+```
+standing_of(source_kind, acceptance) →
+    REJECTED    a person ruled it out
+    ACCEPTED    a person asserted or confirmed it          → dotted
+    SUGGESTED   a rule or a model proposes it              → dashed
+    STATED      a document says so, nobody has qualified it → solid
+```
+
+`GraphNode.standing`, `GraphEdge.standing`, `stroke`, `is_fact`, the graph filter, the
+stats counters and the impact scorer are all derived from it. There is no second
+definition to drift.
+
+## Standing decides how far a change can travel
+
+The impact scorer combines standing with the **edge type** — the other half of the
+ontology — so that distance alone can no longer overstate a claim:
+
+| the route includes | strongest possible verdict |
 | --- | --- |
-| `acceptance = observed` and source is specification or a proving rule | **solid** — stated |
-| `acceptance = proposed` (whatever the source) | **dashed** — suggested |
-| `acceptance = accepted`, or `source_kind = user_edit` | **dotted** — your decision |
+| only `STATED` hops along contract edges | **broken** |
+| an `ACCEPTED` hop, or a semantic edge (`ALIAS_OF`, `REPRESENTS`) | **degraded** |
+| a `SUGGESTED` hop | **potentially affected** |
 
-The graph filter, the exports and the legend all derive from this one property, so "hide
-inferences" and "draw it solid" cannot drift apart. A test asserts exactly that.
+This is what makes the stated assumption *"a suggested relationship never produces
+broken"* true by construction rather than by assertion. `DependencyPath` carries the hops
+so the caller can see them, and the UI shows the route as
+`customer_id —alias of→ cust_no` rather than two bare names.
 
 ## Consequences
 

@@ -87,6 +87,47 @@ class Acceptance(str, Enum):
     SUPERSEDED = "superseded"
 
 
+class Standing(str, Enum):
+    """How much weight an assertion carries. The single answer to 'do we know this?'.
+
+    `source_kind` and `acceptance` are both raw facts about an assertion's history;
+    neither alone answers the question the product keeps asking. Alias detection is a
+    *deterministic rule* — so `source_kind.is_fact` is true — but it only ever proposes,
+    so treating it as stated is wrong. That mismatch was independently re-derived (and
+    got wrong) in the stroke, the graph filter and the impact scorer before it was
+    collapsed into this one property.
+    """
+
+    STATED = "stated"        # a document says so
+    ACCEPTED = "accepted"    # a person asserted or confirmed it
+    SUGGESTED = "suggested"  # a rule or a model proposes it
+    REJECTED = "rejected"    # a person ruled it out
+
+    @property
+    def stroke(self) -> str:
+        return {
+            Standing.STATED: "solid",
+            Standing.ACCEPTED: "dotted",
+            Standing.SUGGESTED: "dashed",
+            Standing.REJECTED: "dashed",
+        }[self]
+
+    @property
+    def is_stated(self) -> bool:
+        return self is Standing.STATED
+
+
+def standing_of(source_kind: SourceKind, acceptance: Acceptance) -> Standing:
+    """Collapse (where it came from, what a human decided) into one standing."""
+    if acceptance is Acceptance.REJECTED:
+        return Standing.REJECTED
+    if acceptance is Acceptance.ACCEPTED or source_kind is SourceKind.USER_EDIT:
+        return Standing.ACCEPTED
+    if acceptance is Acceptance.PROPOSED:
+        return Standing.SUGGESTED
+    return Standing.STATED if source_kind.is_fact else Standing.SUGGESTED
+
+
 class Evidence(BaseModel):
     """A pointer back into the source material that justifies a node, edge or answer."""
 
@@ -136,8 +177,13 @@ class GraphNode(BaseModel):
     tags: list[str] = Field(default_factory=list)
 
     @property
+    def standing(self) -> Standing:
+        return standing_of(self.provenance.source_kind, self.acceptance)
+
+    @property
     def is_fact(self) -> bool:
-        return self.provenance.is_fact
+        """True only for an unqualified, document-stated assertion."""
+        return self.standing.is_stated
 
     def display_group(self) -> str:
         """Which semantic-zoom level this node belongs to (1 = coarsest)."""
@@ -156,30 +202,19 @@ class GraphEdge(BaseModel):
     evidence: list[Evidence] = Field(default_factory=list)
 
     @property
+    def standing(self) -> Standing:
+        return standing_of(self.provenance.source_kind, self.acceptance)
+
+    @property
     def is_fact(self) -> bool:
-        return self.provenance.is_fact
+        """True only for an unqualified, document-stated assertion."""
+        return self.standing.is_stated
 
     @property
     def stroke(self) -> str:
-        """Visual encoding contract, computed once here so UI and export agree.
-
-        Acceptance is checked before source kind. A deterministic rule that only ever
-        *suggests* — alias detection — would otherwise draw solid and read as a stated
-        fact, which is exactly the confusion the whole provenance model exists to prevent.
-        """
-        if self.provenance.source_kind is SourceKind.USER_EDIT:
-            return "dotted"
-        if self.acceptance is Acceptance.ACCEPTED:
-            return "dotted"
-        if self.acceptance is Acceptance.PROPOSED:
-            return "dashed"
-        if self.provenance.source_kind in (
-            SourceKind.AI_INFERENCE,
-            SourceKind.BUNDLED_ANALYSIS,
-            SourceKind.SCENARIO,
-        ):
-            return "dashed"
-        return "solid"
+        """Visual encoding contract. Derived from standing so the picture, the graph
+        filter and the impact scorer cannot drift apart."""
+        return self.standing.stroke
 
 
 _ZOOM_LEVEL: dict[NodeType, str] = {
@@ -314,22 +349,18 @@ class KnowledgeGraph(BaseModel):
             stats.by_node_type[node.type.value] = stats.by_node_type.get(node.type.value, 0) + 1
         for edge in self.edges:
             stats.by_edge_type[edge.type.value] = stats.by_edge_type.get(edge.type.value, 0) + 1
-            # "Observed" is the headline number the Overview contrasts with "inferred", so
-            # it must mean *stated by the specification and not awaiting a human decision*.
-            # A deterministic rule that only ever suggests (alias detection) belongs on the
-            # inferred side even though its source kind is a fact.
-            kind = edge.provenance.source_kind
-            if kind is SourceKind.USER_EDIT:
-                stats.user_edges += 1
-            elif edge.acceptance is Acceptance.ACCEPTED:
-                stats.accepted_inferences += 1
-                stats.user_edges += 1
-            elif kind.is_fact and edge.acceptance is Acceptance.OBSERVED:
-                stats.observed_edges += 1
-            elif edge.acceptance is Acceptance.REJECTED:
-                pass
-            else:
-                stats.inferred_edges += 1
+            # One rule, shared with the stroke and the impact scorer: see `Standing`.
+            match edge.standing:
+                case Standing.STATED:
+                    stats.observed_edges += 1
+                case Standing.ACCEPTED:
+                    stats.user_edges += 1
+                    if edge.provenance.source_kind is not SourceKind.USER_EDIT:
+                        stats.accepted_inferences += 1
+                case Standing.SUGGESTED:
+                    stats.inferred_edges += 1
+                case Standing.REJECTED:
+                    pass
         stats.services = stats.by_node_type.get(NodeType.SERVICE.value, 0)
         stats.operations = stats.by_node_type.get(NodeType.API_OPERATION.value, 0)
         stats.schemas = stats.by_node_type.get(NodeType.SCHEMA.value, 0)

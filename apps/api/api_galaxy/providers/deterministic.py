@@ -318,22 +318,32 @@ class DeterministicProvider:
                     other = edge.target if edge.source == target.id else edge.source
                     if other in index and other not in aliases:
                         aliases.append(other)
-            for dependent_id, distance, _chain in repo.dependents(
+            for path in repo.dependents(
                 target.id, limits=QueryLimits(max_depth=4, max_nodes=300)
             ):
-                node = index.get(dependent_id)
+                node = index.get(path.node_id)
                 if node is None:
                     continue
-                highlighted.append(dependent_id)
+                highlighted.append(path.node_id)
                 if node.type is NodeType.API_OPERATION:
-                    operations.append(dependent_id)
+                    operations.append(path.node_id)
                     services.add(str(node.attrs.get("service", "")))
                     if len(evidence) < 14:
+                        # Say *how* it reaches the field. "via a suggested alias" and "via
+                        # the schema it returns" are different answers to the same question.
+                        route = (
+                            "declared contract"
+                            if path.all_contract and path.all_stated
+                            else "a suggested relationship"
+                            if not path.all_stated
+                            else "a semantic link"
+                        )
                         evidence.append(
                             AnswerEvidence(
-                                node_id=dependent_id,
+                                node_id=path.node_id,
                                 label=node.label,
-                                why=f"Reaches '{target.label}' in {distance} hop(s).",
+                                why=f"Reaches '{target.label}' in {path.distance} hop(s) "
+                                f"through {route}.",
                             )
                         )
 

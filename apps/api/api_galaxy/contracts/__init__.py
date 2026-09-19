@@ -18,6 +18,8 @@ from api_galaxy.contracts.graph import (
     NodeType,
     Provenance,
     SourceKind,
+    Standing,
+    standing_of,
 )
 from api_galaxy.contracts.ids import (
     capability_id,
@@ -89,6 +91,8 @@ __all__ = [
     "RiskSeverity",
     "Scenario",
     "SourceKind",
+    "Standing",
+    "standing_of",
     "capability_id",
     "domain_id",
     "edge_id",

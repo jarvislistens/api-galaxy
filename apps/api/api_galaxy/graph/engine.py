@@ -15,23 +15,13 @@ from typing import Protocol
 import networkx as nx
 
 from api_galaxy.contracts.graph import (
-    Acceptance,
     EdgeType,
     GraphEdge,
     GraphNode,
     KnowledgeGraph,
     NodeType,
+    Standing,
 )
-
-
-def _is_stated(element: GraphNode | GraphEdge) -> bool:
-    """True only for things the specification actually says.
-
-    This has to agree exactly with ``GraphEdge.stroke``: "hide inferences" and "draw it
-    solid" must mean the same thing, or the filtered view shows dashed edges. A
-    deterministic rule that merely *proposes* — alias detection — is not a stated fact.
-    """
-    return element.provenance.source_kind.is_fact and element.acceptance is Acceptance.OBSERVED
 
 DEFAULT_MAX_DEPTH = 4
 DEFAULT_MAX_NODES = 600
@@ -79,15 +69,14 @@ class GraphRepository(Protocol):
     def all_edges(self) -> list[GraphEdge]: ...
     def node(self, node_id: str) -> GraphNode | None: ...
     def neighbors(self, node_id: str, *, depth: int, limits: QueryLimits) -> Subgraph: ...
-    def dependents(self, node_id: str, *, limits: QueryLimits) -> list[tuple[str, int, list[str]]]: ...
+    def dependents(self, node_id: str, *, limits: QueryLimits) -> list[DependencyPath]: ...
     def shortest_path(self, source: str, target: str) -> list[str]: ...
     def cycles(self, *, limit: int = 25) -> list[list[str]]: ...
 
 
-# Edge types that mean "a change here can propagate to there", used for impact analysis.
-# The direction is *from the thing that would break* back to *what it depends on*, so the
-# impact walk runs along reversed edges.
-DEPENDENCY_EDGES: frozenset[EdgeType] = frozenset(
+# Edge types that carry a *contract*: crossing one means the thing at the far end
+# consumes a shape it cannot keep working without. Breaking a contract breaks consumers.
+CONTRACT_EDGES: frozenset[EdgeType] = frozenset(
     {
         EdgeType.CONTAINS,
         EdgeType.EXPOSES,
@@ -97,10 +86,63 @@ DEPENDENCY_EDGES: frozenset[EdgeType] = frozenset(
         EdgeType.DEPENDS_ON,
         EdgeType.CALLS_OR_PRECEDES,
         EdgeType.PART_OF_JOURNEY,
+    }
+)
+
+# Edge types that carry *meaning* rather than a contract. `Order.cust_no` being an alias
+# of `Customer.customer_id` does not mean renaming one stops the other from parsing — it
+# means the concept moved. Real, worth surfacing, but never "broken".
+SEMANTIC_EDGES: frozenset[EdgeType] = frozenset(
+    {
         EdgeType.ALIAS_OF,
         EdgeType.REPRESENTS,
     }
 )
+
+# Everything a change can propagate along. The walk runs against edge direction, from the
+# thing that would break back to what it depends on.
+DEPENDENCY_EDGES: frozenset[EdgeType] = CONTRACT_EDGES | SEMANTIC_EDGES
+
+
+@dataclass(frozen=True)
+class Hop:
+    """One step of a dependency walk: what kind of link it was, and how well attested."""
+
+    edge_type: EdgeType
+    standing: Standing
+
+    @property
+    def is_contract(self) -> bool:
+        return self.edge_type in CONTRACT_EDGES
+
+    @property
+    def weight(self) -> int:
+        """Lower is stronger. Used to pick the best of several links between two nodes."""
+        if self.standing is not Standing.STATED:
+            return 3 if not self.is_contract else 2
+        return 0 if self.is_contract else 1
+
+
+@dataclass(frozen=True)
+class DependencyPath:
+    """A node reached by the dependency walk, with the route taken to reach it."""
+
+    node_id: str
+    distance: int
+    chain: list[str]
+    hops: list[Hop]
+
+    @property
+    def all_contract(self) -> bool:
+        return all(hop.is_contract for hop in self.hops)
+
+    @property
+    def all_stated(self) -> bool:
+        return all(hop.standing is Standing.STATED for hop in self.hops)
+
+    def weakest_hop(self) -> Hop | None:
+        """The hop that limits how strong a claim this path can support."""
+        return max(self.hops, key=lambda hop: hop.weight, default=None)
 
 
 class NetworkXGraphRepository:
@@ -211,38 +253,67 @@ class NetworkXGraphRepository:
 
     def dependents(
         self, node_id: str, *, limits: QueryLimits | None = None
-    ) -> list[tuple[str, int, list[str]]]:
-        """Who breaks if ``node_id`` changes.
+    ) -> list[DependencyPath]:
+        """Who is affected if ``node_id`` changes, and *by what kind of relationship*.
 
-        Walks *incoming* dependency edges transitively and returns
-        ``(node_id, distance, chain)`` where ``chain`` starts at the changed node.
+        Walks incoming dependency edges transitively. The edge types and standings
+        crossed are returned alongside the chain, because "two hops away" and "two hops
+        away, the second of which was a suggested alias" are completely different
+        statements and only the caller can weigh them. Returning just the node IDs is
+        what let the impact scorer call an alias hop a broken contract.
         """
         limits = (limits or QueryLimits(max_depth=6, max_nodes=DEFAULT_MAX_NODES)).clamp()
         if node_id not in self._nx:
             return []
         allowed = {e.value for e in DEPENDENCY_EDGES}
-        seen: dict[str, tuple[int, list[str]]] = {node_id: (0, [node_id])}
+        start = DependencyPath(node_id=node_id, distance=0, chain=[node_id], hops=[])
+        seen: dict[str, DependencyPath] = {node_id: start}
         queue: list[str] = [node_id]
-        out: list[tuple[str, int, list[str]]] = []
+        out: list[DependencyPath] = []
 
         while queue:
             current = queue.pop(0)
-            distance, chain = seen[current]
-            if distance >= limits.max_depth:
+            path = seen[current]
+            if path.distance >= limits.max_depth:
                 continue
             for predecessor in self._nx.predecessors(current):
                 if predecessor in seen:
                     continue
                 data = self._nx.get_edge_data(predecessor, current, default={})
-                if not any(d.get("type") in allowed for d in data.values()):
+                hop = self._strongest_hop(
+                    [key for key, d in data.items() if d.get("type") in allowed]
+                )
+                if hop is None:
                     continue
                 if len(seen) >= limits.max_nodes:
                     return out
-                new_chain = [*chain, predecessor]
-                seen[predecessor] = (distance + 1, new_chain)
-                out.append((predecessor, distance + 1, new_chain))
+                extended = DependencyPath(
+                    node_id=predecessor,
+                    distance=path.distance + 1,
+                    chain=[*path.chain, predecessor],
+                    hops=[*path.hops, hop],
+                )
+                seen[predecessor] = extended
+                out.append(extended)
                 queue.append(predecessor)
         return out
+
+    def _strongest_hop(self, edge_ids: list[str]) -> Hop | None:
+        """Pick the hop that carries the most weight when two nodes are linked twice.
+
+        A field and its schema can be joined by both CONTAINS (stated) and ALIAS_OF
+        (suggested). The relationship between them is the stronger of the two, so a
+        suggested edge must not weaken a contract that also exists.
+        """
+        best: Hop | None = None
+        for edge_id in edge_ids:
+            edge = self._edge_index.get(edge_id)
+            if edge is None:
+                continue
+            candidate = Hop(edge_type=edge.type, standing=edge.standing)
+            if best is None or candidate.weight < best.weight:
+                best = candidate
+        return best
 
     def transitive_dependencies(
         self, node_id: str, *, limits: QueryLimits | None = None
@@ -402,7 +473,7 @@ class NetworkXGraphRepository:
                 or needle in n.id.lower()
             ]
         if not include_inferred:
-            nodes = [n for n in nodes if _is_stated(n)]
+            nodes = [n for n in nodes if n.standing.is_stated]
 
         truncated = False
         reason = ""
@@ -413,7 +484,7 @@ class NetworkXGraphRepository:
         keep = {n.id for n in nodes}
         edges = [e for e in self.document.edges if e.source in keep and e.target in keep]
         if not include_inferred:
-            edges = [e for e in edges if _is_stated(e)]
+            edges = [e for e in edges if e.standing.is_stated]
         return Subgraph(nodes=nodes, edges=edges, truncated=truncated, truncation_reason=reason)
 
     def search(self, needle: str, *, limit: int = 30) -> list[GraphNode]:

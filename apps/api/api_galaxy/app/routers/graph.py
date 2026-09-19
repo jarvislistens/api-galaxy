@@ -150,13 +150,18 @@ async def get_node(project_id: str, node_id: str, scenario: str | None = None) -
         "risks": risks,
         "dependents": [
             {
-                "id": dep_id,
-                "label": index[dep_id].label,
-                "type": index[dep_id].type.value,
-                "distance": distance,
+                "id": path.node_id,
+                "label": index[path.node_id].label,
+                "type": index[path.node_id].type.value,
+                "distance": path.distance,
+                # What kind of relationship reached it — a contract it consumes, or a
+                # semantic link that merely means the same thing.
+                "via": [hop.edge_type.value for hop in path.hops],
+                "contract_only": path.all_contract,
+                "stated_only": path.all_stated,
             }
-            for dep_id, distance, _ in dependents[:40]
-            if dep_id in index
+            for path in dependents[:40]
+            if path.node_id in index
         ],
         "aliases": _aliases_of(graph, index, node_id),
     }

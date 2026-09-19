@@ -14,7 +14,12 @@ from api_galaxy.analysis import (
 from api_galaxy.analysis.pii import DEFAULT_DICTIONARY
 from api_galaxy.contracts.graph import Acceptance, EdgeType, NodeType, SourceKind
 from api_galaxy.contracts.scenario import Change, ChangeKind, ImpactStatus, RepairStatus, Scenario
-from api_galaxy.graph.engine import NetworkXGraphRepository, QueryLimits, diff_graphs
+from api_galaxy.graph.engine import (
+    CONTRACT_EDGES,
+    NetworkXGraphRepository,
+    QueryLimits,
+    diff_graphs,
+)
 
 CUSTOMER_ID = "field:customer-api:Customer.customer_id"
 
@@ -109,10 +114,28 @@ def test_dependents_returns_a_chain_starting_at_the_target(novacart):
     repo = NetworkXGraphRepository(novacart.graph)
     dependents = repo.dependents(CUSTOMER_ID, limits=QueryLimits(max_depth=3))
     assert dependents
-    for node_id, distance, chain in dependents:
-        assert chain[0] == CUSTOMER_ID
-        assert chain[-1] == node_id
-        assert len(chain) == distance + 1
+    for path in dependents:
+        assert path.chain[0] == CUSTOMER_ID
+        assert path.chain[-1] == path.node_id
+        assert len(path.chain) == path.distance + 1
+        # One relationship joins each consecutive pair of nodes.
+        assert len(path.hops) == path.distance
+
+
+def test_dependents_reports_what_kind_of_link_each_hop_was(novacart):
+    """Distance alone cannot tell a contract from an alias; the hops must."""
+    repo = NetworkXGraphRepository(novacart.graph)
+    paths = {p.node_id: p for p in repo.dependents(CUSTOMER_ID, limits=QueryLimits(max_depth=2))}
+
+    schema = paths.get("schema:customer-api:Customer")
+    assert schema is not None
+    assert schema.all_contract and schema.all_stated
+    assert schema.hops[0].edge_type is EdgeType.CONTAINS
+
+    alias = paths.get("field:order-api:Order.cust_no")
+    assert alias is not None, "cust_no should be reachable from customer_id"
+    assert any(hop.edge_type is EdgeType.ALIAS_OF for hop in alias.hops)
+    assert not alias.all_stated, "an alias suggestion is not a stated fact"
 
 
 def test_cycle_detection_finds_the_deliberate_service_loop(novacart):
@@ -341,6 +364,70 @@ def test_rename_impact_classifies_and_explains(novacart):
         assert item.reason, f"{item.node_id} has no explanation"
         if item.distance > 0:
             assert item.chain[0] == CUSTOMER_ID
+
+
+def test_a_suggested_alias_can_never_be_reported_as_broken(novacart):
+    """The regression this whole rule exists for.
+
+    `Order.cust_no` is one ALIAS_OF hop from `Customer.customer_id`. Scoring by distance
+    alone called that a broken contract at distance 1 — and told the user it "directly
+    consumes the changed contract", which it does not. It is a suggestion about meaning.
+    """
+    scenario = _rename_scenario()
+    scenario_graph = apply_changes(novacart.graph, scenario)
+    impact = compute_impact(novacart.graph, scenario_graph, scenario, novacart.journeys)
+    by_id = {item.node_id: item for item in impact.items}
+
+    for alias_id in ("field:order-api:Order.cust_no", "field:payment-api:Payment.party_key"):
+        item = by_id.get(alias_id)
+        assert item is not None, f"{alias_id} should still appear in the impact table"
+        assert item.status is ImpactStatus.POTENTIALLY_AFFECTED, (
+            f"{alias_id} is reached by a suggested alias and must not be called broken"
+        )
+        assert "suggested" in item.reason.lower()
+        assert EdgeType.ALIAS_OF.value in item.via
+
+
+def test_broken_requires_a_route_that_is_all_contract_and_all_stated(novacart):
+    scenario = _rename_scenario()
+    scenario_graph = apply_changes(novacart.graph, scenario)
+    impact = compute_impact(novacart.graph, scenario_graph, scenario, novacart.journeys)
+
+    for item in impact.items:
+        if item.status is not ImpactStatus.BROKEN or item.distance == 0:
+            continue
+        assert item.via, "a broken item must record how it was reached"
+        crossed = {EdgeType(value) for value in item.via}
+        assert crossed <= CONTRACT_EDGES, (
+            f"{item.node_id} was called broken but crossed {crossed - CONTRACT_EDGES}"
+        )
+
+
+def test_every_impact_item_records_the_relationships_it_crossed(novacart):
+    scenario = _rename_scenario()
+    scenario_graph = apply_changes(novacart.graph, scenario)
+    impact = compute_impact(novacart.graph, scenario_graph, scenario, novacart.journeys)
+
+    for item in impact.items:
+        assert len(item.via) == item.distance, (
+            f"{item.node_id}: {item.distance} hops should record {item.distance} relationships"
+        )
+        for value in item.via:
+            assert value in {edge.value for edge in EdgeType}
+
+
+def test_the_schema_holding_the_field_is_broken_by_a_contract_edge(novacart):
+    """The positive case: a real contract hop still produces 'broken'."""
+    scenario = _rename_scenario()
+    scenario_graph = apply_changes(novacart.graph, scenario)
+    impact = compute_impact(novacart.graph, scenario_graph, scenario, novacart.journeys)
+    by_id = {item.node_id: item for item in impact.items}
+
+    schema = by_id.get("schema:customer-api:Customer")
+    assert schema is not None
+    assert schema.status is ImpactStatus.BROKEN
+    assert schema.via == [EdgeType.CONTAINS.value]
+    assert "contains" in schema.reason.lower()
 
 
 def test_rename_breaks_exactly_the_journeys_that_use_the_field(novacart):

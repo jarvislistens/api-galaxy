@@ -261,6 +261,12 @@ export interface ImpactItem {
   reason: string;
   chain: string[];
   chain_labels: string[];
+  /**
+   * The edge type crossed at each hop, parallel to `chain` and one entry shorter —
+   * n nodes are joined by n-1 relationships. This is what separates "consumes the
+   * changed contract" from "is a suggested alias of it", which distance alone cannot.
+   */
+  via: string[];
 }
 
 export interface Change {

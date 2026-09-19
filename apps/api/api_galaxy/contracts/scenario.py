@@ -91,6 +91,11 @@ class ImpactItem(BaseModel):
         description="Node IDs from the changed node to this one. Always `distance + 1` long.",
     )
     chain_labels: list[str] = Field(default_factory=list)
+    via: list[str] = Field(
+        default_factory=list,
+        description="Edge type crossed at each hop, parallel to `chain`. One shorter than "
+        "`chain`, because n nodes are joined by n-1 relationships.",
+    )
     evidence: list[Evidence] = Field(default_factory=list)
 
 

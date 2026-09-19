@@ -1,16 +1,26 @@
 """Break Lab: apply changes to a cloned graph and compute deterministic impact.
 
-Severity propagation rules (documented here because the UI cites them):
+Severity is decided by two things, not one: **how far** the affected node is, and **what
+kind of relationships** the walk crossed to reach it. Distance alone was not enough — it
+reported an aliased field in another service as a broken contract, because it could not
+tell a CONTAINS edge from an ALIAS_OF edge.
 
-* **Broken** — the changed node itself, and anything at distance 1 along a *contract*
-  edge (a schema that contains the field, an operation that sends or returns that schema,
-  an operation that explicitly depends on a removed operation). These cannot keep working
-  without a code change.
-* **Degraded** — distance 2. The contract still type-checks but the semantics moved, or
-  the dependency is now slower/optional.
-* **Potentially affected** — distance 3 and beyond, or anything reached only through an
-  *inferred* edge. We say "potentially" because the evidence is weaker, and we say why.
-* **Unaffected** — everything else.
+Distance sets the starting severity:
+
+* **Broken** — the changed node itself, and anything one hop away.
+* **Degraded** — two hops.
+* **Potentially affected** — three or more.
+
+The route then *caps* it, and can only ever weaken the claim:
+
+* a hop along a **semantic** edge (ALIAS_OF, REPRESENTS) caps at **degraded** — the far
+  end means the same thing, it does not consume the same shape;
+* a hop a person **accepted** caps at **degraded** — a human agreed the link is real, but
+  agreeing is not the same as a document declaring it;
+* a hop that is merely **suggested** caps at **potentially affected** — which is the
+  assumption stated below, now actually enforced rather than asserted.
+
+Only a path that is entirely contract edges and entirely stated can support "broken".
 
 Nothing here is a prediction about production. It is a statement about the specification
 graph, and every export repeats that caveat.
@@ -29,6 +39,7 @@ from api_galaxy.contracts.graph import (
     NodeType,
     Provenance,
     SourceKind,
+    Standing,
 )
 from api_galaxy.contracts.ids import edge_id
 from api_galaxy.contracts.scenario import (
@@ -41,26 +52,15 @@ from api_galaxy.contracts.scenario import (
     RepairStatus,
     Scenario,
 )
-from api_galaxy.graph.engine import NetworkXGraphRepository, QueryLimits
-
-CONTRACT_EDGES = frozenset(
-    {
-        EdgeType.CONTAINS,
-        EdgeType.USES_REQUEST,
-        EdgeType.RETURNS,
-        EdgeType.REFERENCES,
-        EdgeType.EXPOSES,
-        EdgeType.DEPENDS_ON,
-        EdgeType.CALLS_OR_PRECEDES,
-        EdgeType.PART_OF_JOURNEY,
-    }
-)
+from api_galaxy.graph.engine import DependencyPath, NetworkXGraphRepository, QueryLimits
 
 ASSUMPTIONS = [
     "Impact is computed from the specification graph, not from runtime traffic.",
     "A consumer is assumed to use every field of every schema it receives.",
     "Explicit x-api-galaxy-depends-on edges are treated as hard dependencies.",
-    "Inferred relationships only ever produce 'potentially affected', never 'broken'.",
+    "Only contract relationships can break something. Alias and represents links carry "
+    "meaning rather than a contract, so they cap the result at 'degraded'.",
+    "A suggested relationship only ever produces 'potentially affected', never 'broken'.",
 ]
 
 LIMITATIONS = [
@@ -345,11 +345,6 @@ def compute_impact(
 
     repo = NetworkXGraphRepository(base)
     index = base.node_index()
-    inferred_edges = {
-        (e.source, e.target)
-        for e in base.edges
-        if not e.is_fact
-    }
 
     items: dict[str, ImpactItem] = {}
     for change in scenario.changes:
@@ -390,30 +385,27 @@ def compute_impact(
                 ),
             )
 
-            for dependent_id, distance, chain in repo.dependents(
+            for path in repo.dependents(
                 origin_id, limits=QueryLimits(max_depth=5, max_nodes=800)
             ):
-                dependent = index.get(dependent_id)
+                dependent = index.get(path.node_id)
                 if dependent is None:
                     continue
-                via_inference = any(
-                    (chain[i + 1], chain[i]) in inferred_edges or (chain[i], chain[i + 1]) in inferred_edges
-                    for i in range(len(chain) - 1)
-                )
-                status = _status_for(distance, degrade_only=degrade_only, via_inference=via_inference)
+                status = _status_for(path, degrade_only=degrade_only)
                 _record(
                     items,
                     ImpactItem(
-                        node_id=dependent_id,
+                        node_id=path.node_id,
                         node_label=dependent.label,
                         node_type=dependent.type.value,
                         status=status,
-                        distance=distance,
-                        reason=_reason_for(status, distance, via_inference),
+                        distance=path.distance,
+                        reason=_reason_for(path, status),
                         # Origin first, affected node last — the chain reads in the same
                         # direction the shockwave travels, and `len(chain) == distance + 1`.
-                        chain=list(chain),
-                        chain_labels=[index[c].label for c in chain if c in index],
+                        chain=list(path.chain),
+                        chain_labels=[index[c].label for c in path.chain if c in index],
+                        via=[hop.edge_type.value for hop in path.hops],
                         evidence=dependent.evidence[:1],
                     ),
                 )
@@ -456,29 +448,70 @@ def _record(items: dict[str, ImpactItem], item: ImpactItem) -> None:
         items[item.node_id] = item
 
 
-def _status_for(distance: int, *, degrade_only: bool, via_inference: bool) -> ImpactStatus:
-    if via_inference:
-        return ImpactStatus.POTENTIALLY_AFFECTED
+def _status_for(path: DependencyPath, *, degrade_only: bool) -> ImpactStatus:
+    """Distance proposes a severity; the route taken can only weaken it."""
     if degrade_only:
-        return ImpactStatus.DEGRADED if distance <= 2 else ImpactStatus.POTENTIALLY_AFFECTED
-    if distance <= 1:
-        return ImpactStatus.BROKEN
-    if distance == 2:
-        return ImpactStatus.DEGRADED
-    return ImpactStatus.POTENTIALLY_AFFECTED
-
-
-def _reason_for(status: ImpactStatus, distance: int, via_inference: bool) -> str:
-    if via_inference:
-        return (
-            "Reached only through an inferred relationship, so this is a possibility rather "
-            "than a certainty."
+        by_distance = (
+            ImpactStatus.DEGRADED if path.distance <= 2 else ImpactStatus.POTENTIALLY_AFFECTED
         )
+    elif path.distance <= 1:
+        by_distance = ImpactStatus.BROKEN
+    elif path.distance == 2:
+        by_distance = ImpactStatus.DEGRADED
+    else:
+        by_distance = ImpactStatus.POTENTIALLY_AFFECTED
+
+    ceiling = _ceiling_for(path)
+    # `rank` is 0 for broken and rises as severity falls, so the weaker of the two claims
+    # is simply the higher rank.
+    return by_distance if by_distance.rank >= ceiling.rank else ceiling
+
+
+def _ceiling_for(path: DependencyPath) -> ImpactStatus:
+    """The strongest claim this route can support, whatever the distance."""
+    ceiling = ImpactStatus.BROKEN
+    for hop in path.hops:
+        if hop.standing in (Standing.SUGGESTED, Standing.REJECTED):
+            limit = ImpactStatus.POTENTIALLY_AFFECTED
+        elif hop.standing is Standing.ACCEPTED or not hop.is_contract:
+            limit = ImpactStatus.DEGRADED
+        else:
+            continue
+        if limit.rank > ceiling.rank:
+            ceiling = limit
+    return ceiling
+
+
+def _reason_for(path: DependencyPath, status: ImpactStatus) -> str:
+    """Say what actually decided this, naming the relationship responsible."""
+    limiting = path.weakest_hop()
+    capped = status.rank > ImpactStatus.BROKEN.rank and _ceiling_for(path).rank >= status.rank
+    if limiting is not None and capped:
+        relation = limiting.edge_type.value.replace("_", " ").lower()
+        if limiting.standing is Standing.SUGGESTED:
+            return (
+                f"Reached through a suggested '{relation}' relationship, so this is a "
+                "possibility rather than a certainty."
+            )
+        if limiting.standing is Standing.ACCEPTED:
+            return (
+                f"Reached through a '{relation}' relationship you accepted, not one the "
+                "specification declares."
+            )
+        if not limiting.is_contract:
+            return (
+                f"Reached through '{relation}', which carries meaning rather than a "
+                "contract — the far end does not consume the changed shape."
+            )
+
     if status is ImpactStatus.BROKEN:
-        return f"Directly consumes the changed contract ({distance} hop)."
+        via = path.hops[-1].edge_type.value.replace("_", " ").lower() if path.hops else "the change"
+        return f"Directly consumes the changed contract, via {via}."
     if status is ImpactStatus.DEGRADED:
-        return "Two hops away — the contract still matches but the meaning has moved."
-    return f"{distance} hops away along declared dependencies."
+        return (
+            f"{path.distance} hops away — the contract still matches but the meaning has moved."
+        )
+    return f"{path.distance} hops away along declared dependencies."
 
 
 # --------------------------------------------------------------------------------------
