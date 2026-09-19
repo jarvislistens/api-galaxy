@@ -94,11 +94,16 @@ def build_context(
         if len(schemas) >= max_schemas:
             break
 
+    # Domains follow the same scope as everything else. Listing all of them regardless
+    # meant a request narrowed to one domain still handed out seven domain IDs as
+    # citable, so a scoped run was never really scoped.
+    domains = [n for n in graph.nodes_of(NodeType.DOMAIN) if wanted is None or n.id in wanted]
+
     allowed = (
         [s["id"] for s in services]
         + [o.id for o in operations]
         + [s.id for s in schemas]
-        + [n.id for n in graph.nodes_of(NodeType.DOMAIN)]
+        + [n.id for n in domains]
         + [
             f["id"]
             for s in schemas
@@ -112,7 +117,7 @@ def build_context(
         services=services,
         operations=operations,
         schemas=schemas,
-        existing_domains=[n.label for n in graph.nodes_of(NodeType.DOMAIN)],
+        existing_domains=[n.label for n in domains],
         allowed_node_ids=sorted(set(allowed)),
     )
 

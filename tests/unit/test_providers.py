@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from api_galaxy.contracts.graph import EdgeType
 from api_galaxy.contracts.providers import (
     EnrichmentRequest,
     EnrichmentResult,
@@ -425,3 +426,48 @@ async def test_arena_runs_both_providers_and_survives_one_failing(novacart):
     assert len(comparison.metrics) == 2
     assert [m.ok for m in comparison.metrics] == [True, False]
     assert "boom" in comparison.metrics[1].error
+
+
+async def test_a_scoped_arena_run_is_actually_scoped(novacart):
+    """Both sides of a comparison must see the same slice.
+
+    The deterministic provider reads the graph directly rather than a prompt, so unlike a
+    model it *can* answer beyond its context — and it did, reporting all seven domains
+    and every DEPENDS_ON edge in the estate while its opponent had been handed one
+    domain. Every scoped comparison was quietly rigged in its favour.
+    """
+    graph = novacart.graph
+    customer_nodes = {
+        edge.source
+        for edge in graph.edges
+        if edge.type is EdgeType.BELONGS_TO_DOMAIN and edge.target == "domain:customer"
+    } | {"domain:customer"}
+    # Pull in what those nodes own, the way the arena route builds its scope.
+    for edge in graph.edges:
+        if edge.source in customer_nodes:
+            customer_nodes.add(edge.target)
+
+    scoped = build_context(graph, node_ids=customer_nodes, chunk_label="domain: Customer")
+
+    # The context must not hand out IDs from outside the slice.
+    assert "domain:customer" in scoped.allowed_node_ids
+    assert "domain:payment" not in scoped.allowed_node_ids
+    assert scoped.existing_domains == ["Customer"]
+
+    scoped_result = await DeterministicProvider(graph).enrich(
+        EnrichmentRequest(project_id="p", context=scoped)
+    )
+    whole = await DeterministicProvider(graph).enrich(
+        EnrichmentRequest(project_id="p", context=build_context(graph))
+    )
+
+    assert [d.name for d in scoped_result.domains] == ["Customer"]
+    assert len(whole.domains) > len(scoped_result.domains)
+    # Nothing it reports may reference a node the opponent never saw.
+    allowed = set(scoped.allowed_node_ids)
+    for relation in scoped_result.relations:
+        assert relation.source_id in allowed and relation.target_id in allowed
+    for alias in scoped_result.aliases:
+        assert set(alias.member_ids) <= allowed
+    for journey in scoped_result.journeys:
+        assert set(journey.operation_ids) <= allowed

@@ -80,13 +80,22 @@ class DeterministicProvider:
         allowed = set(request.context.allowed_node_ids)
         index = graph.node_index()
 
+        # The Arena's whole claim is that both providers saw the *same* bounded context.
+        # A model physically cannot answer beyond the context it was handed, but this
+        # provider reads the graph directly and would happily report the entire estate
+        # while its opponent saw one domain — which silently rigged every comparison.
+        def in_scope(node_id: str) -> bool:
+            return not allowed or node_id in allowed
+
         # Entities: schemas that other things point at are the ones that carry meaning.
         inbound: dict[str, int] = {}
         for edge in graph.edges:
+            if not (in_scope(edge.source) and in_scope(edge.target)):
+                continue
             if edge.type in (EdgeType.RETURNS, EdgeType.USES_REQUEST, EdgeType.REFERENCES):
                 inbound[edge.target] = inbound.get(edge.target, 0) + 1
         ranked = sorted(
-            (n for n in graph.nodes_of(NodeType.SCHEMA) if n.id in allowed or not allowed),
+            (n for n in graph.nodes_of(NodeType.SCHEMA) if in_scope(n.id)),
             key=lambda n: (-inbound.get(n.id, 0), n.label),
         )
         for node in ranked[: request.max_items]:
@@ -111,7 +120,12 @@ class DeterministicProvider:
                 and e.target == node.id
                 and e.source in index
                 and index[e.source].type is NodeType.SERVICE
+                and in_scope(e.source)
             ]
+            # A domain is in scope when the context actually contains it or something
+            # that belongs to it; otherwise it is estate knowledge the opponent never saw.
+            if not in_scope(node.id) and not members:
+                continue
             result.domains.append(
                 InferredDomain(
                     name=node.label,
@@ -123,6 +137,8 @@ class DeterministicProvider:
 
         capabilities: dict[str, list[str]] = {}
         for node in graph.nodes_of(NodeType.API_OPERATION):
+            if not in_scope(node.id):
+                continue
             for tag in node.tags or [str(node.attrs.get("service", "General"))]:
                 capabilities.setdefault(tag, []).append(node.id)
         for name, operation_ids in sorted(capabilities.items())[: request.max_items]:
@@ -147,13 +163,20 @@ class DeterministicProvider:
                 ),
                 key=lambda n: int(n.attrs.get("order", 0)),
             )
+            operation_ids = [
+                str(s.attrs.get("operation_id"))
+                for s in steps
+                if s.attrs.get("operation_id") and in_scope(str(s.attrs.get("operation_id")))
+            ]
+            # A journey whose every step is outside the slice was not visible to the
+            # opponent either.
+            if not operation_ids:
+                continue
             result.journeys.append(
                 InferredJourney(
                     name=node.label,
                     description=node.description,
-                    operation_ids=[
-                        str(s.attrs.get("operation_id")) for s in steps if s.attrs.get("operation_id")
-                    ],
+                    operation_ids=operation_ids,
                     narrations=[str(s.attrs.get("narration", "")) for s in steps],
                     confidence=0.9,
                 )
@@ -162,6 +185,8 @@ class DeterministicProvider:
         clusters: dict[str, list[str]] = {}
         for edge in graph.edges:
             if edge.type is not EdgeType.ALIAS_OF:
+                continue
+            if not (in_scope(edge.source) and in_scope(edge.target)):
                 continue
             canonical = str(edge.attrs.get("canonical") or "concept")
             members = clusters.setdefault(canonical, [])
@@ -179,6 +204,8 @@ class DeterministicProvider:
             )
 
         for edge in graph.edges:
+            if not (in_scope(edge.source) and in_scope(edge.target)):
+                continue
             if edge.type is EdgeType.DEPENDS_ON and edge.source in index and edge.target in index:
                 result.relations.append(
                     InferredRelation(
