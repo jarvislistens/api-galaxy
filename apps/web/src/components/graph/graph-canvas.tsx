@@ -7,14 +7,19 @@
  * breadthfirst) out of the box, runs headless so the exported HTML report can use the
  * same engine, and has native SVG/PNG export. See `docs/architecture/adr-001`.
  *
- * Two behaviours matter more than they look:
+ * Three behaviours matter more than they look:
  *
  * 1. **The layout settles and then stops.** Physics that keeps nudging nodes after the
- *    user has oriented themselves is actively hostile, so `fcose` is run once per data
- *    change with animation, and then the simulation is done.
+ *    user has oriented themselves is actively hostile, so the layout runs once per data
+ *    change and then the simulation is done.
  * 2. **Highlighting never re-runs the layout.** Selecting a node, playing a journey or
  *    showing an impact shockwave only adds and removes classes, so positions are stable
  *    and the eye can track what moved — nothing.
+ * 3. **The layout does not animate and does not fit; we do both, after it settles.**
+ *    An animating layout fits the viewport from wherever the nodes happen to be
+ *    mid-flight, which left the estate zoomed out in a corner. Instead the layout snaps
+ *    to its final positions behind a hidden canvas, we fit once, and then fade in. The
+ *    reveal is smoother than the physics ever was, and it is correct every time.
  */
 
 import cytoscape, {
@@ -65,12 +70,23 @@ export interface GraphCanvasProps {
   ariaLabel?: string;
 }
 
+// Fit padding scales with the canvas. A fixed 56px is right for the full-width Galaxy
+// but swallows most of the ~340px preview embedded in the journey player, which left
+// that graph a tiny unreadable clump ringed by empty space.
+const MAX_FIT_PADDING = 56;
+const MIN_FIT_PADDING = 14;
+
+function fitPadding(core: Core): number {
+  const smallest = Math.min(core.width() || 0, core.height() || 0);
+  if (!smallest) return MAX_FIT_PADDING;
+  return Math.max(MIN_FIT_PADDING, Math.min(MAX_FIT_PADDING, Math.round(smallest * 0.075)));
+}
+
 const LAYOUTS: Record<LayoutName, any> = {
   force: {
     name: "fcose",
     quality: "default",
-    animate: true,
-    animationDuration: 420,
+    animate: false,
     // `randomize: true` is load-bearing, not a default left alone.
     //
     // With it false, fcose seeds from existing positions — and since every element is
@@ -82,27 +98,26 @@ const LAYOUTS: Record<LayoutName, any> = {
     randomize: true,
     // Labels sit below their node and can be 110px wide, so separation has to be
     // generous or the text overlaps and the graph becomes unreadable.
-    nodeSeparation: 115,
-    idealEdgeLength: 105,
-    nodeRepulsion: 7000,
-    gravity: 0.28,
+    nodeSeparation: 160,
+    idealEdgeLength: 150,
+    nodeRepulsion: 12000,
+    gravity: 0.22,
     packComponents: true,
     // Deterministic: the same graph laid out twice must look the same.
-    fit: true,
-    padding: 44,
+    fit: false,
+    padding: MAX_FIT_PADDING,
   },
   hierarchy: {
     name: "breadthfirst",
     directed: true,
-    animate: true,
-    animationDuration: 380,
-    spacingFactor: 1.15,
-    padding: 44,
-    fit: true,
+    animate: false,
+    spacingFactor: 1.5,
+    padding: MAX_FIT_PADDING,
+    fit: false,
   },
-  circle: { name: "concentric", animate: true, animationDuration: 360, padding: 44, fit: true,
+  circle: { name: "concentric", animate: false, padding: MAX_FIT_PADDING, fit: false, minNodeSpacing: 46,
             concentric: (n: NodeSingular) => n.degree(false), levelWidth: () => 2 },
-  grid: { name: "grid", animate: true, animationDuration: 320, padding: 44, fit: true },
+  grid: { name: "grid", animate: false, padding: MAX_FIT_PADDING, fit: false, avoidOverlapPadding: 26 },
 };
 
 function toElements(nodes: GraphNode[], edges: GraphEdge[], impact?: Record<string, string>) {
@@ -158,6 +173,9 @@ export const GraphCanvas = React.forwardRef<GraphCanvasHandle, GraphCanvasProps>
     const containerRef = React.useRef<HTMLDivElement | null>(null);
     const coreRef = React.useRef<Core | null>(null);
     const [ready, setReady] = React.useState(false);
+    // True once the user has panned or zoomed by hand. Resizing the window then leaves
+    // their view alone instead of snapping it back to a fit.
+    const userAdjustedRef = React.useRef(false);
 
     // --- create once ---------------------------------------------------------
     React.useEffect(() => {
@@ -195,12 +213,65 @@ export const GraphCanvas = React.forwardRef<GraphCanvasHandle, GraphCanvasProps>
       });
 
       if (core.nodes().length === 0) return;
-      const options = { ...LAYOUTS[layout] };
-      if (reduceMotion) options.animate = false;
-      const run = core.layout(options);
+      // New data or a new layout means a new view; whatever zoom the user had chosen no
+      // longer refers to anything.
+      userAdjustedRef.current = false;
+      const container = core.container();
+      // Hide the canvas while it settles so the fit never reads as a jump.
+      if (container && !reduceMotion) container.style.opacity = "0";
+
+      const run = core.layout({ ...LAYOUTS[layout] });
+      run.one("layoutstop", () => {
+        // Re-measure, then fit exactly once. The layouts deliberately do neither: an
+        // animated layout fit computes its zoom from mid-flight positions, which is what
+        // parked the whole estate in the top-left corner.
+        core.resize();
+        core.fit(undefined, fitPadding(core));
+        if (container) {
+          container.style.transition = reduceMotion ? "" : "opacity 420ms ease-out";
+          container.style.opacity = "1";
+        }
+      });
       run.run();
       // Deliberately not re-run after this: see the module docstring.
     }, [nodes, edges, impact, layout, ready]);
+
+    // --- keep the viewport in step with the container -------------------------
+    React.useEffect(() => {
+      const container = containerRef.current;
+      const core = coreRef.current;
+      if (!container || !core || !ready) return;
+      if (typeof ResizeObserver === "undefined") return;
+
+      // Opening the inspector, collapsing the filter rail and resizing the window all
+      // change the canvas box without remounting it. Without this the renderer keeps the
+      // stale size and the graph drifts out of view.
+      let frame = 0;
+      let previous = { width: 0, height: 0 };
+      const observer = new ResizeObserver((entries) => {
+        const box = entries[0]?.contentRect;
+        if (!box || box.width < 1 || box.height < 1) return;
+        // Sub-pixel reflow churn would otherwise re-fit on every frame.
+        if (Math.abs(box.width - previous.width) < 2 && Math.abs(box.height - previous.height) < 2) {
+          return;
+        }
+        previous = { width: box.width, height: box.height };
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(() => {
+          core.resize();
+          // Re-fit unless the user has chosen their own zoom or pan. Never re-fitting
+          // leaves the graph hanging off the edge when the window shrinks; always
+          // re-fitting throws away the view they deliberately set up. Tracking the
+          // gesture is what lets us do the right thing in both cases.
+          if (!userAdjustedRef.current) core.fit(undefined, fitPadding(core));
+        });
+      });
+      observer.observe(container);
+      return () => {
+        cancelAnimationFrame(frame);
+        observer.disconnect();
+      };
+    }, [ready]);
 
     // --- selection and highlight (class changes only, never a relayout) ------
     React.useEffect(() => {
@@ -267,16 +338,46 @@ export const GraphCanvas = React.forwardRef<GraphCanvasHandle, GraphCanvasProps>
       };
       const onDoubleTap = (event: EventObject) => onExpand?.(event.target.id());
 
+      // Cytoscape has no :hover selector and draws to a canvas, so the pointer cursor and
+      // the hover halo both have to be driven by hand.
+      const container = core.container();
+      const onEnter = (event: EventObject) => {
+        event.target.addClass("hovered");
+        if (container) container.style.cursor = "pointer";
+      };
+      const onLeave = (event: EventObject) => {
+        event.target.removeClass("hovered");
+        if (container) container.style.cursor = "";
+      };
+
       core.on("tap", "node", onTapNode);
       core.on("tap", "edge", onTapEdge);
       core.on("tap", onTapBackground);
       core.on("dbltap", "node", onDoubleTap);
+      core.on("mouseover", "node", onEnter);
+      core.on("mouseout", "node", onLeave);
+
+      // Native listeners rather than Cytoscape's `zoom`/`pan` events, because those also
+      // fire for our own programmatic fits — which would immediately mark the view as
+      // user-adjusted and defeat the whole point.
+      const markAdjusted = () => {
+        userAdjustedRef.current = true;
+      };
+      container?.addEventListener("wheel", markAdjusted, { passive: true });
+      container?.addEventListener("mousedown", markAdjusted);
+      container?.addEventListener("touchstart", markAdjusted, { passive: true });
 
       return () => {
+        container?.removeEventListener("wheel", markAdjusted);
+        container?.removeEventListener("mousedown", markAdjusted);
+        container?.removeEventListener("touchstart", markAdjusted);
         core.off("tap", "node", onTapNode);
         core.off("tap", "edge", onTapEdge);
         core.off("tap", onTapBackground);
         core.off("dbltap", "node", onDoubleTap);
+        core.off("mouseover", "node", onEnter);
+        core.off("mouseout", "node", onLeave);
+        if (container) container.style.cursor = "";
       };
     }, [onSelectNode, onSelectEdge, onExpand, ready]);
 
@@ -285,7 +386,15 @@ export const GraphCanvas = React.forwardRef<GraphCanvasHandle, GraphCanvasProps>
       ref,
       () => ({
         core: () => coreRef.current,
-        fit: () => coreRef.current?.animate({ fit: { eles: coreRef.current.elements(), padding: 44 } }, { duration: 300 }),
+        fit: () => {
+          const core = coreRef.current;
+          if (!core) return;
+          userAdjustedRef.current = false;
+          core.animate(
+            { fit: { eles: core.elements(), padding: fitPadding(core) } },
+            { duration: 300 },
+          );
+        },
         center: (nodeId?: string) => {
           const core = coreRef.current;
           if (!core) return;
@@ -301,7 +410,8 @@ export const GraphCanvas = React.forwardRef<GraphCanvasHandle, GraphCanvasProps>
           const core = coreRef.current;
           if (!core) return;
           core.elements().removeClass("highlighted dimmed path active-step");
-          core.fit(undefined, 44);
+          userAdjustedRef.current = false;
+          core.fit(undefined, fitPadding(core));
         },
         exportPng: (scale = 2) => coreRef.current?.png({ full: true, scale, bg: "#0a0c10" }) ?? null,
         focus: (nodeId: string, depth = 1) => {

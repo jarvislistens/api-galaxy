@@ -45,6 +45,66 @@ labelled as inference.
 
 Then you can break it, on a clone, and watch the blast radius.
 
+## What this actually is
+
+**It reads your OpenAPI files, turns the whole estate into one queryable graph, and tells
+you what a change would break.**
+
+Three questions people reasonably ask first:
+
+- **Is it an ontology tool?** The ontology is the *engine*, not the product. It is what
+  lets every answer cite the file and JSON Pointer it came from. Nobody wants an
+  ontology; they want the impact answer it makes possible.
+- **Is it a graph of my repository?** No. It never opens a `.py`, `.ts` or `.java` file.
+  It reads **specification documents only**.
+- **So it just turns a JSON file into a graph?** Essentially — but the value is in loading
+  **many files at once**. One spec describes one service; the findings that matter live
+  *between* files. Three of the eight findings in [`samples/try-it`](samples/try-it/) do
+  not exist if you import its two files separately.
+
+### Ten things people use it for
+
+1. **Inherit an estate** — get the domain map of seven unknown services in a minute rather than a week of reading YAML.
+2. **Pre-merge breaking-change review** — rename a field, see exactly which endpoints and business journeys stop working.
+3. **Find one concept under many names** — `customer_id` / `cust_no` / `party_key` are one person, and no single file says so.
+4. **Security sweep** — find endpoints that return personal data with no authentication.
+5. **Consistency audit** — mismatched error envelopes, three pagination styles, money that is a number here and a string there.
+6. **Architecture review** — service coupling, circular dependencies, whether the domain boundaries are real.
+7. **Migration and modernisation assessment** — produce a client-ready estate report as the actual deliverable.
+8. **Evidence in an API design review** — attach a scoped diagram or a Markdown section to the PR instead of an opinion.
+9. **Onboard engineers** — journey playback and missions teach the estate by using it.
+10. **Decide whether a model earns its place** — the Arena measures recall *and* invented references on your own specs.
+
+### Where it sits in the lifecycle
+
+| Phase | Helps? |
+| --- | --- |
+| Design and API review | ✅ core |
+| Pre-merge review | ✅ core — this is the impact answer |
+| Release planning | ✅ what to announce, what to deprecate |
+| Onboarding | ✅ |
+| Assessment and pre-sales | ✅ the report *is* the deliverable |
+| Build, CI, deploy | ❌ not a build tool |
+| Runtime, monitoring, incident response | ❌ it sees no traffic |
+
+### Is it a production deliverable?
+
+Two different things, and it matters which you mean:
+
+- **The app** is a workbench. You run it locally; it is not a service you deploy.
+- **The report** is the deliverable — self-contained HTML or PDF, carrying a specification
+  fingerprint and a fact-versus-inference legend, that you hand to a client or attach to
+  a ticket.
+
+### Where it honestly does not help
+
+- If your specifications are stale, the graph is stale. It believes the documents.
+- It cannot see undocumented consumers, so real blast radius may be wider than it reports.
+- It will not find a bug in your implementation — only in your contracts.
+
+> **The short version:** before you merge a specification change, find out what it breaks
+> across every other service, with a citation for each claim.
+
 ## What makes this different from a chatbot or a Swagger viewer
 
 | | Swagger UI | A chat assistant | API Galaxy |

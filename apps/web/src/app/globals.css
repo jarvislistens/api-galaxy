@@ -148,6 +148,16 @@
     overflow-x: auto;
     max-width: 100%;
   }
+
+  /* Still scrollable, but without the bar. Only for toolbars where overflow is a
+     last-resort fallback — never for content a user needs to know can scroll. */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @layer utilities {

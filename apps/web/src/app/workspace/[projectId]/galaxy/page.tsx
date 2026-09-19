@@ -318,9 +318,13 @@ export default function Page() {
         </aside>
 
         {/* ------------------------------------------------------------ centre */}
-        <section className="relative flex min-w-0 flex-1 flex-col">
+        {/* `@container` so the toolbar sizes itself against *this panel*, not the
+            viewport. With three panels open the centre is ~660px at 1440px wide, so
+            viewport breakpoints kept full-width labels that did not fit and left the
+            toolbar scrolling sideways behind a scrollbar. */}
+        <section className="@container relative flex min-w-0 flex-1 flex-col">
           {/* toolbar */}
-          <div className="scroll-x flex h-11 shrink-0 items-center gap-2 border-b border-[var(--color-line)] px-3">
+          <div className="no-scrollbar flex h-11 shrink-0 items-center gap-2 overflow-x-auto border-b border-[var(--color-line)] px-3">
             <div role="tablist" aria-label="Graph view" className="flex shrink-0 items-center gap-1">
               <ViewTab
                 active={view === "graph"}
@@ -625,7 +629,10 @@ function ViewTab({
       )}
     >
       {icon}
-      {label}
+      {/* The icon carries the meaning once the panel is narrow; the accessible name
+          still comes from the text node, which stays in the DOM. */}
+      <span className="hidden @[760px]:inline">{label}</span>
+      <span className="sr-only @[760px]:hidden">{label}</span>
     </button>
   );
 }

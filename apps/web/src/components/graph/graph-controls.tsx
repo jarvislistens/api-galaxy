@@ -338,7 +338,7 @@ export function CanvasControls({
           aria-label="Focus on the selected node"
         >
           <Focus size={14} />
-          <span className="hidden xl:inline">Focus</span>
+          <span className="hidden @[860px]:inline">Focus</span>
         </Button>
       </Tooltip>
       <Tooltip label="Show the whole graph again">

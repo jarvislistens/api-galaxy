@@ -56,24 +56,48 @@ export const NODE_SHAPE: Record<string, string> = {
 };
 
 export const NODE_SIZE: Record<string, number> = {
-  Estate: 46,
-  Domain: 40,
-  Capability: 32,
-  Service: 34,
-  Journey: 30,
-  BusinessEntity: 28,
-  JourneyStep: 20,
-  APIOperation: 22,
-  Endpoint: 18,
-  Schema: 24,
-  Field: 13,
-  SecurityScheme: 18,
-  Server: 16,
-  Risk: 22,
-  Scenario: 26,
-  Change: 20,
-  Repair: 20,
+  Estate: 64,
+  Domain: 56,
+  Capability: 44,
+  Service: 48,
+  Journey: 42,
+  BusinessEntity: 38,
+  JourneyStep: 28,
+  APIOperation: 30,
+  Endpoint: 25,
+  Schema: 33,
+  Field: 18,
+  SecurityScheme: 25,
+  Server: 22,
+  Risk: 30,
+  Scenario: 36,
+  Change: 28,
+  Repair: 28,
 };
+
+/**
+ * A lighter version of each node colour, used for the rim and the halo.
+ *
+ * Cytoscape has no drop-shadow, so depth comes from a rim-light border plus a wide,
+ * very transparent `outline` in the node's own hue. That is what stops the canvas
+ * reading as flat stickers on black.
+ */
+function lighten(hex: string, amount: number): string {
+  const value = hex.replace("#", "");
+  const to = (i: number) => {
+    const channel = parseInt(value.slice(i, i + 2), 16);
+    return Math.round(channel + (255 - channel) * amount);
+  };
+  return `rgb(${to(0)}, ${to(2)}, ${to(4)})`;
+}
+
+export function nodeColour(type: string): string {
+  return NODE_COLOUR[type] ?? "#8b94a4";
+}
+
+export function nodeRim(type: string): string {
+  return lighten(nodeColour(type), 0.42);
+}
 
 export const STATUS_COLOUR: Record<string, string> = {
   broken: "#f2585f",
@@ -87,31 +111,57 @@ export function buildStylesheet(): StylesheetStyle[] {
     {
       selector: "node",
       style: {
-        "background-color": (element: any) => NODE_COLOUR[element.data("type")] ?? "#8b94a4",
-        "background-opacity": 0.88,
+        "background-color": (element: any) => nodeColour(element.data("type")),
+        "background-opacity": 1,
         shape: (element: any) => (NODE_SHAPE[element.data("type")] ?? "ellipse") as any,
-        width: (element: any) => NODE_SIZE[element.data("type")] ?? 16,
-        height: (element: any) => NODE_SIZE[element.data("type")] ?? 16,
+        width: (element: any) => NODE_SIZE[element.data("type")] ?? 20,
+        height: (element: any) => NODE_SIZE[element.data("type")] ?? 20,
         label: "data(label)",
-        color: "#c3cad6",
+        color: "#e6eaf2",
         "font-size": (element: any) =>
-          ["Domain", "Estate", "Service"].includes(element.data("type")) ? 11 : 9,
+          ["Estate", "Domain"].includes(element.data("type"))
+            ? 13
+            : ["Service", "Journey", "Capability", "BusinessEntity"].includes(element.data("type"))
+              ? 12
+              : 10.5,
         "font-family": "ui-sans-serif, -apple-system, system-ui, sans-serif",
         "font-weight": 500,
         "text-valign": "bottom",
         "text-halign": "center",
-        "text-margin-y": 4,
+        "text-margin-y": 7,
         "text-wrap": "ellipsis",
-        "text-max-width": "110px",
-        "text-background-color": "#0a0c10",
-        "text-background-opacity": 0.72,
-        "text-background-padding": "2px",
-        "text-background-shape": "roundrectangle",
-        "border-width": 1,
-        "border-color": "#0a0c10",
+        "text-max-width": "148px",
+        // A dark outline on the glyphs themselves keeps labels legible where they cross
+        // an edge, which a background box alone does not do once boxes start overlapping.
+        "text-outline-color": "#0a0c10",
+        "text-outline-width": 2.5,
+        "text-outline-opacity": 0.9,
+        "text-background-opacity": 0,
+        // Rim light + wide transparent halo in the node's own hue. This is the whole
+        // difference between "flat sticker" and "luminous body".
+        "border-width": 1.5,
+        "border-color": (element: any) => nodeRim(element.data("type")),
+        "border-opacity": 0.85,
+        "outline-width": 7,
+        "outline-color": (element: any) => nodeColour(element.data("type")),
+        "outline-opacity": 0.13,
+        "outline-offset": 1,
         "overlay-opacity": 0,
-        "transition-property": "background-color, border-color, border-width, opacity",
-        "transition-duration": 180,
+        "transition-property":
+          "background-color, border-color, border-width, outline-width, outline-opacity, opacity, width, height",
+        "transition-duration": 220,
+        "transition-timing-function": "ease-out-cubic",
+      } as any,
+    },
+    {
+      // Pointer affordance and a brighter halo while the cursor is over a node. Cytoscape
+      // has no :hover selector, so the canvas toggles this class on mouseover/mouseout.
+      selector: "node.hovered",
+      style: {
+        "outline-width": 13,
+        "outline-opacity": 0.3,
+        "border-width": 2.2,
+        "z-index": 15,
       } as any,
     },
     {
@@ -134,33 +184,42 @@ export function buildStylesheet(): StylesheetStyle[] {
     },
     {
       selector: "node.dimmed",
-      style: { opacity: 0.16, "text-opacity": 0 } as any,
+      style: { opacity: 0.12, "text-opacity": 0, "outline-opacity": 0 } as any,
     },
     {
       selector: "node.highlighted",
       style: {
-        "border-width": 2.4,
-        "border-color": "#7c8cf8",
+        "border-width": 2.6,
+        "border-color": "#a7b3ff",
         "border-style": "solid",
-        "background-opacity": 1,
+        "border-opacity": 1,
+        "outline-width": 14,
+        "outline-color": "#7c8cf8",
+        "outline-opacity": 0.34,
         "z-index": 20,
-        "font-size": 11,
       } as any,
     },
     {
       selector: "node.active-step",
       style: {
         "border-width": 3,
-        "border-color": "#45cf9b",
-        "background-opacity": 1,
+        "border-color": "#7cf0c0",
+        "border-opacity": 1,
+        "outline-width": 20,
+        "outline-color": "#45cf9b",
+        "outline-opacity": 0.42,
         "z-index": 30,
       } as any,
     },
     {
       selector: "node:selected",
       style: {
-        "border-width": 2.6,
+        "border-width": 3,
         "border-color": "#f4f6fa",
+        "border-opacity": 1,
+        "outline-width": 16,
+        "outline-color": "#f4f6fa",
+        "outline-opacity": 0.26,
         "z-index": 40,
       } as any,
     },
@@ -180,35 +239,51 @@ export function buildStylesheet(): StylesheetStyle[] {
     {
       selector: "edge",
       style: {
-        width: 1,
-        "line-color": "#39414f",
-        "target-arrow-color": "#39414f",
+        width: 1.4,
+        "line-color": "#4b5567",
+        "target-arrow-color": "#5a6479",
         "target-arrow-shape": "triangle",
-        "arrow-scale": 0.55,
+        "arrow-scale": 0.9,
         "curve-style": "bezier",
-        opacity: 0.55,
-        "transition-property": "line-color, opacity, width",
-        "transition-duration": 180,
+        // Multiple relationships between the same pair fan out instead of stacking into
+        // one line that silently hides all but the last.
+        "control-point-step-size": 44,
+        opacity: 0.75,
+        "line-cap": "round",
+        "transition-property": "line-color, opacity, width, target-arrow-color",
+        "transition-duration": 220,
+        "transition-timing-function": "ease-out-cubic",
       } as any,
     },
     {
       selector: 'edge[stroke = "dashed"]',
-      style: { "line-style": "dashed", "line-color": "#8a7333", "target-arrow-color": "#8a7333" } as any,
+      style: {
+        "line-style": "dashed",
+        "line-dash-pattern": [7, 5],
+        "line-color": "#b08f3e",
+        "target-arrow-color": "#b08f3e",
+        opacity: 0.68,
+      } as any,
     },
     {
       selector: 'edge[stroke = "dotted"]',
-      style: { "line-style": "dotted", "line-color": "#5b64ad", "target-arrow-color": "#5b64ad" } as any,
+      style: {
+        "line-style": "dotted",
+        "line-color": "#8b93e8",
+        "target-arrow-color": "#8b93e8",
+        opacity: 0.8,
+      } as any,
     },
     {
       selector: "edge.dimmed",
-      style: { opacity: 0.05 } as any,
+      style: { opacity: 0.06 } as any,
     },
     {
       selector: "edge.highlighted",
       style: {
-        width: 2.2,
-        "line-color": "#7c8cf8",
-        "target-arrow-color": "#7c8cf8",
+        width: 2.6,
+        "line-color": "#8e9dff",
+        "target-arrow-color": "#8e9dff",
         opacity: 1,
         "z-index": 20,
       } as any,
@@ -216,9 +291,10 @@ export function buildStylesheet(): StylesheetStyle[] {
     {
       selector: "edge.path",
       style: {
-        width: 2.6,
-        "line-color": "#45cf9b",
-        "target-arrow-color": "#45cf9b",
+        width: 3.2,
+        "line-color": "#57e0ab",
+        "target-arrow-color": "#57e0ab",
+        "line-style": "solid",
         opacity: 1,
         "z-index": 25,
       } as any,

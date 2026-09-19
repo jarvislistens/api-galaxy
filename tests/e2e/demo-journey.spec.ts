@@ -153,6 +153,54 @@ test("9. the galaxy renders and offers a keyboard-navigable alternative", async 
   expect(hasAlternative, "the graph needs an accessible list alternative").toBeTruthy();
 });
 
+/** The rendered bounding box of everything in the canvas, in canvas coordinates. */
+async function graphBox(page: Page) {
+  return page.evaluate(() => {
+    // Cytoscape registers itself on its own container, so no production seam is needed.
+    const el = document.querySelector('[data-testid="graph-canvas"]') as any;
+    const cy = el?._cyreg?.cy;
+    if (!cy || cy.elements().length === 0) return null;
+    const bb = cy.elements().renderedBoundingBox();
+    return { w: cy.width(), h: cy.height(), x1: bb.x1, y1: bb.y1, x2: bb.x2, y2: bb.y2 };
+  });
+}
+
+function expectFitted(box: Awaited<ReturnType<typeof graphBox>>, when: string) {
+  expect(box, "the canvas should expose a Cytoscape instance with elements").not.toBeNull();
+  const { w, h, x1, y1, x2, y2 } = box!;
+  // A pixel of slack absorbs the sub-pixel rounding in Cytoscape's own maths.
+  expect(x1, `${when}: clipped on the left`).toBeGreaterThanOrEqual(-1);
+  expect(y1, `${when}: clipped at the top`).toBeGreaterThanOrEqual(-1);
+  expect(x2, `${when}: clipped on the right`).toBeLessThanOrEqual(w + 1);
+  expect(y2, `${when}: clipped at the bottom`).toBeLessThanOrEqual(h + 1);
+  // It also has to use the space. A graph collapsed into one corner passes the bounds
+  // check above while still looking broken.
+  const covered = ((x2 - x1) * (y2 - y1)) / (w * h);
+  expect(covered, `${when}: fills only ${(covered * 100).toFixed(1)}% of the canvas`)
+    .toBeGreaterThan(0.2);
+}
+
+test("9b. the graph stays fitted when the window is resized", async ({ page }) => {
+  // Regression: Cytoscape measures its container once and never again. Resizing the
+  // window — or opening the inspector, or collapsing the filter rail — left the renderer
+  // on the old size, so the graph drifted out of view and never recovered. A plain
+  // page-load assertion does not catch this: it only appears once the box *changes*.
+  await page.goto(`${WORKSPACE}/galaxy`);
+  await settled(page);
+  await expect(page.getByTestId("graph-canvas")).toBeVisible();
+  expectFitted(await graphBox(page), "on load");
+
+  for (const size of [
+    { width: 1024, height: 768 },
+    { width: 1680, height: 1050 },
+  ]) {
+    await page.setViewportSize(size);
+    // The observer coalesces into an animation frame; give it a couple.
+    await page.waitForTimeout(250);
+    expectFitted(await graphBox(page), `after resize to ${size.width}x${size.height}`);
+  }
+});
+
 test("10. the legend is available and does not rely on colour alone", async ({ page }) => {
   await page.goto(`${WORKSPACE}/galaxy`);
   await settled(page);
