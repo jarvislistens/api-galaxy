@@ -324,6 +324,26 @@ schemas, 175 fields — built to contain **nine deliberate, documented problems*
 All nine are detected. Eight by deterministic rules, and the ninth — by design — only by
 the semantic layer. See [`samples/novacart/README.md`](samples/novacart/README.md).
 
+### Testing the import path
+
+NovaCart loads through a built-in button, which does not exercise the drop zone. For that
+there is a second, much smaller pair of specs in
+[`samples/try-it/`](samples/try-it/README.md) — a pet boarding business, 8 operations,
+seeded with eight problems.
+
+Drag both files onto **Import your API** at once. Three of the eight findings only exist
+*between* the two services, so importing them one at a time hides them:
+
+```
+high    'amount' has different types in different services
+high    Sensitive data exposed without authentication
+medium  'owner' is spelled 2 different ways  (owner_id vs party_ref)
+medium  Circular dependency between billing-api and booking-api
+```
+
+Then rename `Booking.owner_id` in the Break Lab and watch `party_ref` — in the *other*
+service — show up in the broken list. That is the class of breakage code review misses.
+
 ---
 
 ## Tests

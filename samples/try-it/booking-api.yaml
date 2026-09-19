@@ -1,0 +1,174 @@
+openapi: 3.0.3
+info:
+  title: PawStay Booking API
+  version: "1.4.0"
+  description: >
+    Takes reservations for boarding stays. Owns the booking record and the stay
+    lifecycle, and hands the money side over to the billing service.
+x-api-galaxy-domain: Booking
+servers:
+  - url: https://api.pawstay.example/booking/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: Bookings
+  - name: Owners
+
+paths:
+  /bookings:
+    get:
+      operationId: listBookings
+      summary: List bookings page by page
+      description: Returns bookings most recent first, paginated with page and size.
+      tags: [Bookings]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: size, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        "200":
+          description: A page of bookings.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Booking" } }
+              example: []
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    post:
+      operationId: createBooking
+      summary: Open a new boarding stay
+      description: Creates a booking for an owner's pet and reserves the kennel dates.
+      tags: [Bookings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateBookingRequest" }
+      responses:
+        "201":
+          description: The created booking.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Booking" }
+              example: { booking_id: "bk_1029", owner_id: "own_5521", status: "held", total_amount: 184.5 }
+        "400": { description: Invalid request, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  /bookings/{bookingId}:
+    get:
+      operationId: getBooking
+      summary: Fetch a single booking
+      description: Reads one booking by its identifier.
+      tags: [Bookings]
+      parameters:
+        - { name: bookingId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The booking.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Booking" }
+              example: { booking_id: "bk_1029", owner_id: "own_5521", status: "confirmed", total_amount: 184.5 }
+        "404": { description: No such booking, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  /bookings/{bookingId}/confirm:
+    post:
+      operationId: confirmBooking
+      summary: Confirm a held booking
+      description: >
+        Turns a held booking into a confirmed one once payment has been taken.
+        Superseded by the checkout flow in the billing service, but still the
+        documented way to confirm a stay.
+      tags: [Bookings]
+      deprecated: true
+      parameters:
+        - { name: bookingId, in: path, required: true, schema: { type: string } }
+      x-api-galaxy-depends-on:
+        - service: billing-api
+          operationId: chargeInvoice
+          reason: A booking is only confirmed once the invoice has been charged.
+      responses:
+        "200":
+          description: The confirmed booking.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Booking" }
+              example: { booking_id: "bk_1029", status: "confirmed" }
+        "409": { description: Already confirmed, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  /public/owners/{ownerId}/card:
+    get:
+      operationId: getPublicOwnerCard
+      summary: Public owner card for the kennel notice board
+      description: >
+        Renders a small owner card used on the reception screen. No authentication,
+        because the reception screen has no login.
+      tags: [Owners]
+      security: []
+      parameters:
+        - { name: ownerId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The owner card.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OwnerCard" }
+              example: { owner_id: "own_5521", full_name: "A. Shopper", email: "a@pawstay.example", phone: "+44 20 7946 0000" }
+        "404": { description: No such owner, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+
+  schemas:
+    Owner:
+      type: object
+      description: A person who boards pets with us.
+      required: [owner_id, email]
+      properties:
+        owner_id: { type: string, description: Canonical identifier of the owner across PawStay. }
+        full_name: { type: string, description: The owner's full name as given at registration. }
+        email: { type: string, format: email, description: Contact email, also the sign-in credential. }
+        phone: { type: string, description: Contact telephone number for kennel emergencies. }
+
+    OwnerCard:
+      type: object
+      description: A trimmed owner record for display on the reception screen.
+      required: [owner_id]
+      properties:
+        owner_id: { type: string, description: Identifier of the owner this card describes. }
+        full_name: { type: string, description: The owner's full name. }
+        email: { type: string, format: email, description: Contact email shown to reception staff. }
+        phone: { type: string, description: Contact telephone number. }
+
+    Booking:
+      type: object
+      description: One boarding stay for one pet.
+      required: [booking_id, owner_id, total_amount]
+      properties:
+        booking_id: { type: string, description: Identifier of this booking. }
+        owner_id: { type: string, description: Identifier of the owner who made the booking. }
+        pet_name: { type: string, description: The name of the animal being boarded. }
+        status: { type: string, enum: [held, confirmed, cancelled], description: Where the stay is in its lifecycle. }
+        starts_on: { type: string, format: date, description: First night of the stay. }
+        ends_on: { type: string, format: date, description: Last night of the stay. }
+        total_amount:
+          type: number
+          format: double
+          description: Total price of the stay in the booking currency.
+        currency: { type: string, description: ISO currency code for the total. }
+
+    CreateBookingRequest:
+      type: object
+      description: The payload needed to open a booking.
+      required: [owner_id, starts_on, ends_on]
+      properties:
+        owner_id: { type: string, description: Identifier of the owner making the booking. }
+        pet_name: { type: string, description: The name of the animal being boarded. }
+        starts_on: { type: string, format: date, description: First night of the stay. }
+        ends_on: { type: string, format: date, description: Last night of the stay. }
+
+    Error:
+      type: object
+      description: The error envelope used by the booking service.
+      required: [code, message]
+      properties:
+        code: { type: string, description: Machine-readable error code. }
+        message: { type: string, description: Human-readable explanation. }

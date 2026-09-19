@@ -339,7 +339,11 @@ class DeterministicProvider:
 
         highlighted.extend(aliases)
         names = sorted({t.label.split(".")[-1] for t in targets})
-        alias_labels = sorted({index[a].label.split(".")[-1] for a in aliases if a in index})
+        # "Other" means a different spelling, not a different node. The same field name in
+        # two services is one name; listing it as an alias of itself reads as nonsense.
+        alias_labels = sorted(
+            {index[a].label.split(".")[-1] for a in aliases if a in index} - set(names)
+        )
         answer = (
             f"{', '.join(names)} is used by {len(set(operations))} operation(s) across "
             f"{len([s for s in services if s])} service(s)"

@@ -1,0 +1,134 @@
+openapi: 3.0.3
+info:
+  title: PawStay Billing API
+  version: "2.1.0"
+  description: >
+    Raises and charges invoices for boarding stays. Keeps its own view of who the
+    payer is and its own money representation.
+x-api-galaxy-domain: Billing
+servers:
+  - url: https://api.pawstay.example/billing/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: Invoices
+
+paths:
+  /invoices:
+    get:
+      operationId: listInvoices
+      summary: List invoices
+      description: Returns invoices newest first, paginated with limit and offset.
+      tags: [Invoices]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, default: 0 } }
+      responses:
+        "200":
+          description: A page of invoices.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Invoice" } }
+              example: []
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/Problem" } } } }
+
+  /invoices/{invoiceId}:
+    get:
+      operationId: getInvoice
+      summary: Fetch a single invoice
+      description: Reads one invoice, including the amount owed and its payer.
+      tags: [Invoices]
+      parameters:
+        - { name: invoiceId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The invoice.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+              example: { invoice_id: "inv_88", party_ref: "own_5521", amount: "184.50", status: "open" }
+        "404": { description: No such invoice, content: { application/json: { schema: { $ref: "#/components/schemas/Problem" } } } }
+
+  /invoices/{invoiceId}/charge:
+    post:
+      operationId: chargeInvoice
+      summary: Charge an open invoice
+      description: >
+        Takes payment for an open invoice using the payer's stored card and marks
+        the invoice settled.
+      tags: [Invoices]
+      parameters:
+        - { name: invoiceId, in: path, required: true, schema: { type: string } }
+      x-api-galaxy-depends-on:
+        - service: booking-api
+          operationId: getBooking
+          reason: Reads the booking to confirm the stay still exists before taking money.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChargeRequest" }
+      responses:
+        "200":
+          description: The settled invoice.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+              example: { invoice_id: "inv_88", party_ref: "own_5521", amount: "184.50", status: "settled" }
+        "402": { description: Payment declined, content: { application/json: { schema: { $ref: "#/components/schemas/Problem" } } } }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+
+  schemas:
+    Invoice:
+      type: object
+      description: A bill raised against a boarding stay.
+      required: [invoice_id, party_ref, amount]
+      properties:
+        invoice_id: { type: string, description: Identifier of this invoice. }
+        booking_id: { type: string, description: Identifier of the booking being billed. }
+        party_ref:
+          type: string
+          description: >
+            Billing's own reference for the owner who has to pay this invoice. It is
+            the same person the booking service calls the owner.
+        amount:
+          type: string
+          format: decimal
+          description: Total amount owed, carried as a decimal string to avoid float error.
+        currency: { type: string, description: ISO currency code for the amount. }
+        status: { type: string, enum: [open, settled, void], description: Where the invoice is in its lifecycle. }
+        card_last4:
+          type: string
+          description: Last four digits of the card the payer used.
+          x-api-galaxy-sensitive: true
+
+    ChargeRequest:
+      type: object
+      description: The payload needed to take payment for an invoice.
+      required: [party_ref, amount]
+      properties:
+        party_ref: { type: string, description: Billing's reference for the owner being charged. }
+        amount:
+          type: string
+          format: decimal
+          description: Amount to charge, as a decimal string.
+
+    LegacyCoupon:
+      type: object
+      description: A discount code from the retired 2023 promotions engine.
+      properties:
+        code: { type: string, description: The coupon code as printed. }
+        percent_off: { type: integer, description: Percentage taken off the invoice total. }
+
+    Problem:
+      type: object
+      description: The RFC 9457 style error envelope used by the billing service.
+      required: [type, title, status]
+      properties:
+        type: { type: string, description: URI identifying the problem type. }
+        title: { type: string, description: Short human-readable summary. }
+        status: { type: integer, description: The HTTP status code. }
+        detail: { type: string, description: Explanation specific to this occurrence. }
