@@ -52,15 +52,102 @@ you what a change would break.**
 
 Three questions people reasonably ask first:
 
-- **Is it an ontology tool?** The ontology is the *engine*, not the product. It is what
-  lets every answer cite the file and JSON Pointer it came from. Nobody wants an
-  ontology; they want the impact answer it makes possible.
+- **Is it an ontology tool?** Yes — see [below](#yes-it-is-an-ontology-and-it-runs-on-your-machine).
+  It is a local-first ontology of your API estate, with provenance on every assertion.
 - **Is it a graph of my repository?** No. It never opens a `.py`, `.ts` or `.java` file.
   It reads **specification documents only**.
 - **So it just turns a JSON file into a graph?** Essentially — but the value is in loading
   **many files at once**. One spec describes one service; the findings that matter live
   *between* files. Three of the eight findings in [`samples/try-it`](samples/try-it/) do
   not exist if you import its two files separately.
+
+## The input is always an OpenAPI document
+
+There is exactly one kind of input. Everything else is a converter that produces it.
+
+| Path | What it accepts | Notes |
+| --- | --- | --- |
+| **Upload / drop** | `.json`, `.yaml`, `.yml` — OpenAPI **3.0 or 3.1** | Several files at once, 12 MB each |
+| **Paste** | The same, as text | Validated as you type, with the failing line |
+| **Manifest** | `kind: EstateManifest` listing many spec files | How `samples/novacart` loads its seven services |
+| **Postman** | Collection v2.x | **Beta.** Converted to OpenAPI first, and recovers only paths, methods, names and folder-as-tag — Postman has no schema language, so there is nothing else to recover |
+| **URL** | — | **Disabled in this build.** The SSRF-safe fetcher exists and is off |
+
+Not accepted, by design: source code, running traffic, databases, GraphQL, gRPC/protobuf,
+AsyncAPI, WSDL. If your API is not described by an OpenAPI document, this tool has nothing
+to read.
+
+## Yes, it is an ontology, and it runs on your machine
+
+Presenting this as an ontology is accurate, provided you are precise about which kind.
+
+### What makes it one
+
+**A declared vocabulary.** 18 classes and 17 predicates, fixed in code, not inferred per
+project:
+
+```
+Classes     Estate · Domain · Service · Server · APIOperation · Endpoint · Schema ·
+            Field · SecurityScheme · BusinessEntity · Capability · Journey ·
+            JourneyStep · Risk · Scenario · Change · Repair · Evidence
+
+Predicates  CONTAINS · EXPOSES · USES_REQUEST · RETURNS · REFERENCES ·
+            REQUIRES_SECURITY · BELONGS_TO_DOMAIN · REPRESENTS · CALLS_OR_PRECEDES ·
+            PART_OF_JOURNEY · DEPENDS_ON · ALIAS_OF · CONTAINS_PII · AFFECTS ·
+            BREAKS · REPAIRED_BY · INFERRED_RELATION
+```
+
+**Stable, content-derived identifiers.** The same document always yields the same IRIs, so
+two runs are diffable and a report can be regenerated and compared:
+
+```
+urn:api-galaxy:node:schema:customer-api:Address
+```
+
+**A namespace and a real serialisation.** `https://api-galaxy.local/ns#`, exported as
+JSON-LD — 1,073 objects for the bundled estate — plus GraphML for Gephi, yEd and Cytoscape.
+
+**An epistemic layer, which is the unusual part.** Most ontologies record *what is true*.
+This one also records *how well you know it*: six source kinds, five acceptance states,
+and one derived **standing** — `stated`, `accepted`, `suggested`, `rejected` — that drives
+the stroke on the canvas, the graph filter and the impact scoring from a single definition.
+`Order.cust_no ALIAS_OF Customer.customer_id` is in the graph as a **suggestion**, and it
+never silently becomes a fact.
+
+**It is entirely local.** `~/.api-galaxy` — an SQLite file, one graph snapshot per project,
+and your exports. No server, no account, no telemetry.
+
+### What it is not
+
+Say this before a semantic-web specialist says it for you:
+
+| | |
+| --- | --- |
+| ❌ OWL / RDFS | No class axioms, no `subClassOf`, no cardinality restrictions |
+| ❌ A reasoner | No description-logic entailment, no consistency checking |
+| ❌ A triple store / SPARQL | NetworkX in memory, JSON snapshots on disk |
+| ❌ A shared vocabulary | `api-galaxy.local` is ours; it does not align to schema.org |
+
+What this project calls *inference* is **rules plus a language model**, not logical
+entailment. `ALIAS_OF` comes from identifier stems, abbreviation and reading field
+descriptions — not from an axiom a reasoner discharged.
+
+### The accurate one-liner
+
+> A **typed property graph with a declared vocabulary and provenance on every edge** — a
+> domain ontology in the engineering sense, materialised locally. Not OWL, no reasoner.
+
+### Which framing to lead with
+
+Both are true. Pick by who is in the room:
+
+- **Architects, data and governance, presales** — lead with the ontology. It is the
+  credibility signal, and the provenance layer is the part they will not have seen before.
+- **Engineers shipping a change today** — lead with the outcome: *it tells you what your
+  rename breaks, and cites the file and line for every claim.*
+
+The ontology is **why** the second sentence can be true. Do not let the word do the work of
+the demo, and do not claim formal semantics this does not have.
 
 ### Ten things people use it for
 
