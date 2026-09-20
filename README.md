@@ -311,6 +311,9 @@ Design decisions are recorded in [`docs/architecture/`](docs/architecture/):
 [exports](docs/architecture/adr-004-exports.md) ·
 [storage](docs/architecture/adr-005-storage-and-design-system.md)
 
+Presenting it? [`docs/demo-runbook.md`](docs/demo-runbook.md) is the presenter's script —
+what to click, what to say, the verified numbers, and the questions you will get.
+
 ---
 
 ## Privacy
