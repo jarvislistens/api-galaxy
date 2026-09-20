@@ -203,6 +203,12 @@ class NormalizedService(BaseModel):
     openapi_version: str = ""
     domain: str | None = None
     source_file: str = ""
+    source_text: str = Field(
+        default="",
+        description="The document exactly as imported. Kept verbatim so write-back can "
+        "produce a minimal diff against what the author actually wrote, comments and "
+        "formatting included, rather than against a re-serialisation of the parse.",
+    )
     servers: list[NormServer] = Field(default_factory=list)
     operations: list[NormOperation] = Field(default_factory=list)
     schemas: list[NormSchema] = Field(default_factory=list)

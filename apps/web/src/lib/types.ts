@@ -306,6 +306,27 @@ export interface Scenario {
   applied_repairs?: number;
 }
 
+export interface ScenarioPatchFile {
+  filename: string;
+  applied: string[];
+  valid: boolean;
+  validation_errors: string[];
+  diff: string;
+}
+
+/** A scenario expressed as a diff against the documents exactly as they were imported. */
+export interface ScenarioPatch {
+  scenario_id: string;
+  summary: string;
+  patch: string;
+  appliable: boolean;
+  files: ScenarioPatchFile[];
+  skipped: string[];
+  warnings: string[];
+  apply_command: string;
+  caveat: string;
+}
+
 export interface ImpactPayload {
   scenario: Scenario;
   impact: {

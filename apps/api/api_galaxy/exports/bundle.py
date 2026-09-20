@@ -36,6 +36,7 @@ from api_galaxy.contracts.graph import (
 )
 from api_galaxy.contracts.providers import ArenaComparison, DecisionRecord
 from api_galaxy.contracts.scenario import ImpactReport, Repair, Scenario
+from api_galaxy.parsing.normalize import NormalizedEstate
 from api_galaxy.pipeline import AnalysedProject
 
 NO_PROVIDER = "none"
@@ -193,6 +194,17 @@ class ReportBundle(BaseModel):
     spec_fingerprint: str = ""
     app_version: str = __version__
     active_scenario: str | None = None
+    # Carried so write-back can diff against the documents exactly as imported. Excluded
+    # from every serialised report — it is the user's source, not report content.
+    estate: NormalizedEstate | None = Field(default=None, exclude=True, repr=False)
+    # The scenario object itself, for write-back. Reports render `impact` and `repairs`;
+    # only the patch needs the raw change list. Excluded from serialisation alongside the
+    # estate so no report grows a copy of it.
+    scenario: Scenario | None = Field(default=None, exclude=True, repr=False)
+    # The graph *before* the scenario was applied. `graph` holds the scenario graph so
+    # reports show the changed estate, but applying a change rewrites the affected node's
+    # provenance — so write-back has to read source locations from here instead.
+    base_graph: KnowledgeGraph | None = Field(default=None, exclude=True, repr=False)
     provider_disclosure: str = Field(
         default=BUNDLED_PROVIDER,
         description="Which provider and model produced any inference in this report.",
@@ -324,6 +336,9 @@ def build_bundle(
         spec_fingerprint=project.fingerprint,
         app_version=__version__,
         active_scenario=scenario.name if scenario is not None else None,
+        estate=project.estate,
+        scenario=scenario,
+        base_graph=project.graph,
         provider_disclosure=provider_disclosure or NO_PROVIDER,
         graph=source_graph,
         stats=source_graph.stats(),

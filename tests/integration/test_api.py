@@ -501,6 +501,10 @@ def test_every_available_format_renders_through_the_api(client, demo):
     for spec in formats:
         if not spec["available"]:
             continue
+        if spec.get("scenario_only"):
+            # A patch of no changes is correctly a refusal rather than a file; the
+            # scenario path is covered by test_export_formats.py.
+            continue
         created = ok(client.post(f"/api/v1/projects/{demo}/exports",
                                  json={"format": spec["id"]}), expect=201)
         record = created["export"]

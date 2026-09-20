@@ -17,7 +17,7 @@ import zipfile
 from collections.abc import Callable
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api_galaxy.exports.bundle import (
     LEGEND,
@@ -83,6 +83,11 @@ class ExportFormat(BaseModel):
     interactive: bool = False
     available: bool = True
     unavailable_reason: str = ""
+    scenario_only: bool = Field(
+        default=False,
+        description="Meaningless without an active scenario. The Reports screen dims "
+        "these until one is selected rather than letting the download fail.",
+    )
 
 
 # Probed once, at import, so the API can serve the catalogue without touching the
@@ -119,6 +124,15 @@ EXPORT_FORMATS: list[ExportFormat] = [
         media_type="text/html; charset=utf-8",
         description="The PDF's source document. Open it and use your browser's Print to "
         "PDF — page breaks, page numbers and contents all work.",
+    ),
+    ExportFormat(
+        id="patch",
+        label="Specification patch",
+        extension=".patch",
+        media_type="text/x-patch; charset=utf-8",
+        description="The scenario's changes as a unified diff against your original "
+        "documents — comments and formatting preserved. Apply it with `git apply`.",
+        scenario_only=True,
     ),
     ExportFormat(
         id="markdown",
@@ -243,11 +257,60 @@ def _render_csv(bundle: ReportBundle, **_: Any) -> bytes:
     return buffer.getvalue()
 
 
+def _render_patch(bundle: ReportBundle, **_: Any) -> bytes:
+    """The scenario as a diff. Refuses to emit a patch that would not parse."""
+    from api_galaxy.exports.writeback import generate_writeback
+
+    if bundle.scenario is None or bundle.estate is None:
+        raise ExportUnavailable(
+            "A patch needs an active scenario — it is the diff of the changes you made. "
+            "Open Break Lab, make a change, then export from there.",
+            format_id="patch",
+        )
+    # Deliberately the base graph: a scenario graph has already had the change applied,
+    # which replaces the edited node's provenance and loses its source file and pointer.
+    result = generate_writeback(bundle.estate, bundle.base_graph or bundle.graph, bundle.scenario)
+    broken = [f for f in result.changed_files if not f.valid]
+    if broken:
+        raise ExportUnavailable(
+            "The edit does not produce a valid document, so no patch was written: "
+            + "; ".join(broken[0].validation_errors[:2]),
+            format_id="patch",
+        )
+    return _patch_document(bundle, result).encode("utf-8")
+
+
+def _patch_document(bundle: ReportBundle, result: Any) -> str:
+    """A git-applyable patch with a provenance header in comment lines."""
+    header = [
+        f"# API Galaxy patch — {bundle.project_name}",
+        f"# Scenario: {bundle.active_scenario}",
+        f"# Generated: {bundle.generated_at.isoformat(timespec='seconds')}",
+        f"# Specification fingerprint: {bundle.spec_fingerprint}",
+        f"# API Galaxy {bundle.app_version}",
+        "#",
+        f"# {result.summary()}",
+    ]
+    for entry in result.skipped:
+        header.append(f"# not in this patch: {entry}")
+    for warning in result.warnings:
+        header.append(f"# note: {warning}")
+    header.append(
+        "#\n# Review before applying. Impact was computed from the specification graph,"
+    )
+    header.append("# not from runtime traffic — undocumented consumers are invisible to it.")
+    body = result.patch()
+    if not body:
+        header.append("#\n# Nothing to apply.")
+    return "\n".join(header) + "\n" + body
+
+
 _RENDERERS: dict[str, Callable[..., bytes]] = {
     "html": _render_html,
     "pdf": _render_pdf,
     "print_html": _render_print_html,
     "markdown": _render_markdown,
+    "patch": _render_patch,
     "svg": _render_svg,
     "png": _render_png,
     "mermaid": _render_mermaid,
@@ -255,6 +318,7 @@ _RENDERERS: dict[str, Callable[..., bytes]] = {
     "graphml": _render_graphml,
     "csv": _render_csv,
 }
+
 
 
 def render(bundle: ReportBundle, format_id: str, **opts: Any) -> tuple[bytes, str, str]:

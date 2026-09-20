@@ -11,8 +11,8 @@ one you can explore, question, safely break, repair, compare across models, and 
 
 [![Local first](https://img.shields.io/badge/AI-local%20first-7c8cf8?style=flat-square)](#privacy)
 [![Ollama](https://img.shields.io/badge/Ollama-qwen3%3A4b-55c8ea?style=flat-square)](https://ollama.com)
-[![Tests](https://img.shields.io/badge/tests-222%20passing-45cf9b?style=flat-square)](#tests)
-[![Exports](https://img.shields.io/badge/exports-10%20formats-bb8cf5?style=flat-square)](#exports)
+[![Tests](https://img.shields.io/badge/tests-241%20passing-45cf9b?style=flat-square)](#tests)
+[![Exports](https://img.shields.io/badge/exports-11%20formats-bb8cf5?style=flat-square)](#exports)
 [![Python](https://img.shields.io/badge/python-3.11--3.13-3776ab?style=flat-square)](#prerequisites)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey?style=flat-square)](LICENSE)
 
@@ -179,6 +179,10 @@ the demo, and do not claim formal semantics this does not have.
 Two different things, and it matters which you mean:
 
 - **The app** is a workbench. You run it locally; it is not a service you deploy.
+- **The patch** is the edit — a scenario exports as a unified diff against your original
+  documents, comments and formatting intact, which `git apply` takes as-is. It is
+  validated before being offered: if the edit would not re-parse, you get the reason
+  instead of a broken file.
 - **The report** is the deliverable — self-contained HTML or PDF, carrying a specification
   fingerprint and a fact-versus-inference legend, that you hand to a client or attach to
   a ticket.

@@ -25,6 +25,7 @@ import type {
   ProvidersPayload,
   Risk,
   Scenario,
+  ScenarioPatch,
   ValidationResult,
 } from "./types";
 
@@ -242,6 +243,8 @@ export const api = {
     request<{ markdown: string; patch: string[]; migration_steps: string[] }>(
       `/projects/${id}/scenarios/${scenarioId}/change-summary`,
     ),
+  scenarioPatch: (id: string, scenarioId: string) =>
+    request<ScenarioPatch>(`/projects/${id}/scenarios/${scenarioId}/patch`),
   chaos: (id: string, seed = 0) => post<ImpactPayload>(`/projects/${id}/scenarios/chaos`, { seed }),
 
   // --- providers ------------------------------------------------------------

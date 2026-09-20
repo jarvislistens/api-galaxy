@@ -27,7 +27,11 @@ from api_galaxy.exports.diagrams import render_png, render_svg
 from api_galaxy.exports.pdf import to_pdf, to_pdf_html
 from api_galaxy.exports.support import probe_cairosvg, probe_weasyprint
 
-AVAILABLE = [fmt.id for fmt in EXPORT_FORMATS if fmt.available]
+# Scenario-only formats (the patch) are excluded from the "renders for any project"
+# sweep and covered separately below — a diff of no changes is correctly a refusal, not
+# a file, so lumping it in here would only prove the sweep had been weakened.
+AVAILABLE = [fmt.id for fmt in EXPORT_FORMATS if fmt.available and not fmt.scenario_only]
+SCENARIO_ONLY = [fmt.id for fmt in EXPORT_FORMATS if fmt.available and fmt.scenario_only]
 
 
 @pytest.fixture(scope="module")
@@ -241,3 +245,25 @@ def test_unavailable_formats_report_their_reason() -> None:
             continue
         assert fmt.unavailable_reason
         assert "pip install" in fmt.unavailable_reason or "brew install" in fmt.unavailable_reason
+
+
+@pytest.mark.parametrize("format_id", SCENARIO_ONLY)
+def test_scenario_only_format_refuses_without_a_scenario(novacart, format_id: str) -> None:
+    """Refusing with a reason beats emitting an empty file the user has to interpret."""
+    from api_galaxy.exports.bundle import build_bundle
+
+    with pytest.raises(ExportUnavailable) as caught:
+        render(build_bundle(novacart), format_id)
+    assert "scenario" in str(caught.value).lower()
+
+
+@pytest.mark.parametrize("format_id", SCENARIO_ONLY)
+def test_scenario_only_format_renders_with_a_scenario(scenario_bundle, format_id: str) -> None:
+    payload, filename, media_type = render(scenario_bundle, format_id)
+    assert payload, f"{format_id} produced nothing"
+    assert filename.endswith(format_by_id(format_id).extension)
+    assert media_type
+    text = payload.decode("utf-8")
+    # A patch has to carry its provenance and be applyable, not just be non-empty.
+    assert "--- a/" in text and "+++ b/" in text
+    assert "Specification fingerprint" in text

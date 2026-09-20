@@ -412,6 +412,41 @@ async def change_summary(project_id: str, scenario_id: str) -> dict[str, Any]:
     }
 
 
+@router.get("/{scenario_id}/patch")
+async def scenario_patch(project_id: str, scenario_id: str) -> dict[str, Any]:
+    """The scenario as a diff against the original documents.
+
+    This is the difference between "here is what breaks" and "here is the edit". The diff
+    is textual, so comments and formatting survive, and it is validated before being
+    offered — a patch that does not parse is worse than no patch.
+    """
+    from api_galaxy.exports.writeback import generate_writeback
+
+    live, scenario = _scenario(project_id, scenario_id)
+    result = generate_writeback(live.analysed.estate, live.graph, scenario)
+    return {
+        "scenario_id": scenario.id,
+        "summary": result.summary(),
+        "patch": result.patch(),
+        "appliable": bool(result.changed_files) and all(f.valid for f in result.changed_files),
+        "files": [
+            {
+                "filename": f.filename,
+                "applied": f.applied,
+                "valid": f.valid,
+                "validation_errors": f.validation_errors,
+                "diff": f.unified(),
+            }
+            for f in result.changed_files
+        ],
+        "skipped": result.skipped,
+        "warnings": result.warnings,
+        "apply_command": "git apply <file>.patch",
+        "caveat": "Impact was computed from the specification graph, not from runtime "
+        "traffic. Undocumented consumers are invisible to it — review before applying.",
+    }
+
+
 # --------------------------------------------------------------------------------------
 # Chaos
 # --------------------------------------------------------------------------------------

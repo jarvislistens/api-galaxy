@@ -22,6 +22,7 @@ import { ChangeBuilder, type ChangeKind } from "@/components/break-lab/change-bu
 import { ComparePanel, type ComparePayload } from "@/components/break-lab/compare-panel";
 import { ImpactGraph } from "@/components/break-lab/impact-graph";
 import { JourneysPanel } from "@/components/break-lab/journeys-panel";
+import { PatchPanel } from "@/components/break-lab/patch-panel";
 import { ChangeSummaryPanel, RepairsPanel } from "@/components/break-lab/repairs-panel";
 import { ImpactCounts, ShockwaveTable, normaliseItem } from "@/components/break-lab/shockwave";
 import {
@@ -109,6 +110,7 @@ export function BreakLab({ projectId }: { projectId: string }) {
     queryClient.invalidateQueries({ queryKey: ["scenarios", projectId] });
     queryClient.invalidateQueries({ queryKey: ["compare", projectId] });
     queryClient.invalidateQueries({ queryKey: ["change-summary", projectId] });
+    queryClient.invalidateQueries({ queryKey: ["scenario-patch", projectId] });
   }, [queryClient, projectId]);
 
   /* --------------------------------------------------------------- mutations */
@@ -387,6 +389,11 @@ export function BreakLab({ projectId }: { projectId: string }) {
                       />
                     </div>
                     <div className="space-y-5">
+                      <PatchPanel
+                        projectId={projectId}
+                        scenarioId={scenarioId}
+                        hasChanges={changes.length > 0}
+                      />
                       <ChangeSummaryPanel
                         markdown={summary.data?.markdown ?? ""}
                         patch={summary.data?.patch ?? []}

@@ -101,6 +101,7 @@ class OpenAPIParser:
         service = NormalizedService(
             name=self.service_name,
             slug=slugify(self.service_name),
+            source_text=self.doc.text,
             title=self.title,
             version=str(info.get("version") or ""),
             description=str(info.get("description") or ""),
